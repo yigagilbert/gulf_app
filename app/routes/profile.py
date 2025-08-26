@@ -77,35 +77,35 @@ def update_my_profile(
                 detail="Profile not found"
             )
         
-        # Get updated fields
+        # Get all possible fields from schema
+        all_fields = set(ClientProfileUpdate.model_fields.keys())
         update_data = profile_data.dict(exclude_unset=True)
-        
+
+        # If no data provided, do nothing
         if not update_data:
             logger.warning("No data provided for profile update")
-            return profile  # Nothing to update
-        
-        # Validate fields (remove the redundant validation you had)
-        # The schema already validates allowed fields
-        
-        # Update profile fields
-        for field, value in update_data.items():
+            return profile
+
+        # For each field in schema, set to value if provided, else set to None
+        for field in all_fields:
             if hasattr(profile, field):
+                value = update_data.get(field, None)
                 setattr(profile, field, value)
-                logger.debug(f"Updated {field} for user {current_user.id}")
+                logger.debug(f"Set {field} to {value} for user {current_user.id}")
             else:
                 logger.warning(f"Attempted to update invalid field: {field}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid field: {field}"
                 )
-        
+
         # Update timestamp
         profile.updated_at = datetime.utcnow()
-        
+
         # Commit changes
         db.commit()
         db.refresh(profile)
-        
+
         logger.info(f"Profile updated successfully for user: {current_user.id}")
         return profile
         

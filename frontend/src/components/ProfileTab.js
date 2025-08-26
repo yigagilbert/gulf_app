@@ -94,7 +94,11 @@ const ProfileTab = ({ profile, onUpdate }) => {
     }
 
     try {
-      await APIService.updateProfile(formData);
+      // Convert empty strings to null for optional fields
+      const cleanedData = Object.fromEntries(
+        Object.entries(formData).map(([key, value]) => [key, value === '' ? null : value])
+      );
+      await APIService.updateProfile(cleanedData);
       setIsEditing(false);
       await onUpdate(); // Refresh data after successful update
     } catch (error) {
