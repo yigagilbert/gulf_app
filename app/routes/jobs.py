@@ -1,11 +1,11 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
 from app.models import User, JobOpportunity
+from app.schemas import JobOpportunityCreate, JobOpportunityResponse
 from app.schemas import JobOpportunityCreate
 from app.database import get_db
-from app.dependencies import get_admin_user
+from app.dependencies import get_admin_user, get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -37,3 +37,62 @@ def get_jobs(
         JobOpportunity.is_active == is_active
     ).offset(skip).limit(limit).all()
     return jobs
+
+@router.put("/{job_id}", response_model=JobOpportunityResponse)
+def update_job(
+    job_id: str,
+    job_data: JobOpportunityCreate,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    # Update fields
+    for field, value in job_data.dict(exclude_unset=True).items():
+        setattr(job, field, value)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+@router.post("/{job_id}/apply", response_model=dict)
+def apply_for_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id, JobOpportunity.is_active == True).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or inactive")
+    # Check if user already applied (use JobApplication model)
+    from app.models import JobApplication, ClientProfile
+    client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == user.id).first()
+    if not client_profile:
+        raise HTTPException(status_code=400, detail="User does not have a client profile.")
+    existing = db.query(JobApplication).filter(JobApplication.job_id == job_id, JobApplication.client_id == client_profile.id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already applied for this job.")
+    application = JobApplication(
+        id=str(uuid.uuid4()),
+        job_id=job_id,
+        client_id=client_profile.id,
+        application_status="applied"
+    )
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+    return {"message": "Application submitted successfully", "application_id": application.id}
+
+@router.delete("/{job_id}", response_model=dict)
+def delete_job(
+    job_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    db.delete(job)
+    db.commit()
+    return {"message": "Job deleted successfully"}

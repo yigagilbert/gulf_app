@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Search, MapPin } from 'lucide-react';
+import APIService from '../services/APIService';
 
 const JobsTab = ({ jobs }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCountry, setFilterCountry] = useState('');
+  const [applyingId, setApplyingId] = useState(null);
+  const [applySuccess, setApplySuccess] = useState(null);
+  const [applyError, setApplyError] = useState(null);
 
   const countries = [...new Set(jobs.map(job => job.country))];
   
@@ -13,6 +17,21 @@ const JobsTab = ({ jobs }) => {
     const matchesCountry = !filterCountry || job.country === filterCountry;
     return matchesSearch && matchesCountry && job.is_active;
   });
+
+  // Handle job application
+  const handleApply = async (jobId) => {
+    setApplyingId(jobId);
+    setApplySuccess(null);
+    setApplyError(null);
+    try {
+      await APIService.applyForJob(jobId);
+      setApplySuccess('Application submitted successfully!');
+    } catch (err) {
+      setApplyError(err.message || 'Failed to apply for job');
+    } finally {
+      setApplyingId(null);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -41,6 +60,10 @@ const JobsTab = ({ jobs }) => {
           ))}
         </select>
       </div>
+
+      {/* Feedback */}
+      {applySuccess && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg mb-4">{applySuccess}</div>}
+      {applyError && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-4">{applyError}</div>}
 
       {/* Job List */}
       <div className="space-y-4">
@@ -83,8 +106,12 @@ const JobsTab = ({ jobs }) => {
                 </div>
               )}
 
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Apply Now
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={applyingId === job.id}
+                onClick={() => handleApply(job.id)}
+              >
+                {applyingId === job.id ? 'Applying...' : 'Apply Now'}
               </button>
             </div>
           ))

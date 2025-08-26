@@ -34,6 +34,39 @@ class APIError extends Error {
  */
 class APIService {
   /**
+   * Apply for a job (user)
+   * @param {string} jobId - Job ID
+   * @returns {Promise} Application response
+   */
+  static async applyForJob(jobId) {
+    return this.request(`/jobs/${jobId}/apply`, {
+      method: 'POST'
+    });
+  }
+  /**
+   * Update job (admin only)
+   * @param {string} jobId - Job ID
+   * @param {Object} jobData - Job data
+   * @returns {Promise} Updated job
+   */
+  static async updateJob(jobId, jobData) {
+    return this.request(`/jobs/${jobId}`, {
+      method: 'PUT',
+      body: JSON.stringify(jobData)
+    });
+  }
+
+  /**
+   * Delete job (admin only)
+   * @param {string} jobId - Job ID
+   * @returns {Promise} Delete response
+   */
+  static async deleteJob(jobId) {
+    return this.request(`/jobs/${jobId}`, {
+      method: 'DELETE'
+    });
+  }
+  /**
    * Get authentication token from localStorage
    * @returns {string|null} The bearer token or null
    */
