@@ -29,6 +29,7 @@ app = FastAPI(title="Job Placement System API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://gulf-app.vercel.app",
         "http://localhost:3000",      # React dev server
         "http://127.0.0.1:3000",     # Alternative localhost
         "https://localhost:3000",     # HTTPS version
