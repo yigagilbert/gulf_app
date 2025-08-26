@@ -47,13 +47,53 @@ const ProfileTab = ({ profile, onUpdate }) => {
     }
   }, [profile]);
 
+
+  // Validate form data before submitting
+  const validateForm = () => {
+    const errors = [];
+    // Required fields (based on backend ClientProfileUpdate schema)
+    if (!formData.first_name || formData.first_name.trim().length < 2) {
+      errors.push('First name is required and must be at least 2 characters.');
+    }
+    if (!formData.last_name || formData.last_name.trim().length < 2) {
+      errors.push('Last name is required and must be at least 2 characters.');
+    }
+    // Date format validation (YYYY-MM-DD)
+    if (formData.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(formData.date_of_birth)) {
+      errors.push('Date of birth must be in YYYY-MM-DD format.');
+    }
+    // Passport expiry format
+    if (formData.passport_expiry && !/^\d{4}-\d{2}-\d{2}$/.test(formData.passport_expiry)) {
+      errors.push('Passport expiry must be in YYYY-MM-DD format.');
+    }
+    // Phone number basic validation
+    if (formData.phone_primary && !/^\+?\d{7,15}$/.test(formData.phone_primary)) {
+      errors.push('Primary phone number must be valid.');
+    }
+    // NIN basic validation
+    if (formData.nin && formData.nin.length < 5) {
+      errors.push('NIN must be at least 5 characters.');
+    }
+    // Passport number basic validation
+    if (formData.passport_number && formData.passport_number.length < 5) {
+      errors.push('Passport number must be at least 5 characters.');
+    }
+    return errors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(' '));
+      setLoading(false);
+      return;
+    }
+
     try {
-      // FIXED: Use proper APIService method
       await APIService.updateProfile(formData);
       setIsEditing(false);
       await onUpdate(); // Refresh data after successful update
