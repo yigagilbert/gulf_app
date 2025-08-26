@@ -5,7 +5,12 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Database URL - change this for production
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://sunbird:sunbird@localhost/jobplacement_db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Fix for old-style Heroku URLs
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
