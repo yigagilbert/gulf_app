@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import APIService from '../services/APIService';
 
-const ApplicationsTab = () => {
+const AdminApplicationsTab = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,7 +11,7 @@ const ApplicationsTab = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await APIService.getMyApplications();
+        const data = await APIService.getAllApplications();
         setApplications(data);
       } catch (err) {
         setError(err.message || 'Failed to fetch applications');
@@ -24,13 +24,13 @@ const ApplicationsTab = () => {
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">My Applications</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">All Job Applications</h2>
       {loading ? (
         <p className="text-gray-500">Loading applications...</p>
       ) : error ? (
         <p className="text-red-500">{error}</p>
       ) : applications.length === 0 ? (
-        <p className="text-gray-500">You haven't applied to any jobs yet. Check out the job opportunities to get started!</p>
+        <p className="text-gray-500">No job applications found.</p>
       ) : (
         <div className="space-y-4">
           {applications.map(app => (
@@ -40,6 +40,7 @@ const ApplicationsTab = () => {
                 <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{app.application_status}</span>
               </div>
               <div className="text-gray-600 text-sm">Applied: {new Date(app.applied_date).toLocaleDateString()}</div>
+              <div className="text-gray-600 text-sm">Client ID: {app.client_id}</div>
               {app.notes && <div className="text-gray-700 text-sm mt-2">Notes: {app.notes}</div>}
             </div>
           ))}
@@ -49,4 +50,4 @@ const ApplicationsTab = () => {
   );
 };
 
-export default ApplicationsTab;
+export default AdminApplicationsTab;

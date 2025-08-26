@@ -34,6 +34,21 @@ class APIError extends Error {
  */
 class APIService {
   /**
+   * Get job applications for current client
+   * @returns {Promise} Array of job applications
+   */
+  static async getMyApplications() {
+    return this.request('/jobs/applications');
+  }
+
+  /**
+   * Get all job applications (admin only)
+   * @returns {Promise} Array of job applications
+   */
+  static async getAllApplications() {
+    return this.request('/jobs/admin/applications');
+  }
+  /**
    * Apply for a job (user)
    * @param {string} jobId - Job ID
    * @returns {Promise} Application response

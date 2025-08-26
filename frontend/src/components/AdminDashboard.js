@@ -7,6 +7,7 @@ import AdminClientsTab from './AdminClientsTab';
 import AdminJobsTab from './AdminJobsTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
 import APIService from '../services/APIService';
+import AdminApplicationsTab from './AdminApplicationsTab';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('clients');
@@ -107,6 +108,7 @@ const AdminDashboard = () => {
               {[ 
                 { key: 'clients', label: 'Client Management', icon: User },
                 { key: 'jobs', label: 'Job Management', icon: Briefcase },
+                { key: 'applications', label: 'Applications', icon: Calendar },
                 { key: 'analytics', label: 'Analytics', icon: Calendar },
               ].map(({ key, label, icon: Icon }) => (
                 <button
@@ -134,6 +136,7 @@ const AdminDashboard = () => {
               />
             )}
             {activeTab === 'jobs' && <AdminJobsTab />}
+            {activeTab === 'applications' && <AdminApplicationsTab />}
             {activeTab === 'analytics' && <AdminAnalyticsTab />}
           </div>
         </div>

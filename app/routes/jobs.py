@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
-from app.models import User, JobOpportunity
-from app.schemas import JobOpportunityCreate, JobOpportunityResponse
-from app.schemas import JobOpportunityCreate
+from app.models import User, JobOpportunity, JobApplication, ClientProfile
+from app.schemas import JobOpportunityCreate, JobOpportunityResponse, JobApplicationResponse
 from app.database import get_db
 from app.dependencies import get_admin_user, get_current_user
 
@@ -96,3 +95,25 @@ def delete_job(
     db.delete(job)
     db.commit()
     return {"message": "Job deleted successfully"}
+
+
+# Get job applications for current client
+@router.get("/applications", response_model=list[JobApplicationResponse])
+def get_my_applications(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == user.id).first()
+    if not client_profile:
+        raise HTTPException(status_code=400, detail="User does not have a client profile.")
+    applications = db.query(JobApplication).filter(JobApplication.client_id == client_profile.id).order_by(JobApplication.created_at.desc()).all()
+    return applications
+
+# Get all job applications (admin only)
+@router.get("/admin/applications", response_model=list[JobApplicationResponse])
+def get_all_applications(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    applications = db.query(JobApplication).order_by(JobApplication.created_at.desc()).all()
+    return applications
