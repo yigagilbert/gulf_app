@@ -1,10 +1,13 @@
 # main.py
 
+
 import os
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
 from app.database import Base, engine
 # Import routers
 from app.routes.auth import router as auth_router
@@ -23,7 +26,13 @@ load_dotenv()
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+
 app = FastAPI(title="Job Placement System API", version="1.0.0")
+
+# Serve frontend static files (React build)
+frontend_build_path = os.path.join(os.path.dirname(__file__), '../frontend/build')
+if os.path.exists(frontend_build_path):
+    app.mount("/", StaticFiles(directory=frontend_build_path, html=True), name="static")
 
 # ENHANCED CORS configuration
 app.add_middleware(
