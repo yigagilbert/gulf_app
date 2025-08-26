@@ -1,10 +1,9 @@
 # main.py
-
-
 import os
 import uvicorn
+import uuid
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
@@ -29,10 +28,23 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Job Placement System API", version="1.0.0")
 
-# Serve frontend static files (React build)
+
+# Serve static files at /static
 frontend_build_path = os.path.join(os.path.dirname(__file__), '../frontend/build')
 if os.path.exists(frontend_build_path):
-    app.mount("/", StaticFiles(directory=frontend_build_path, html=True), name="static")
+    app.mount("/static", StaticFiles(directory=os.path.join(frontend_build_path, 'static')), name="static")
+
+    # Catch-all route for frontend (serves index.html for non-API, non-static routes)
+    from fastapi import Request
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_react_app(full_path: str, request: Request):
+        # Only serve index.html for non-API, non-static routes
+        if full_path.startswith("api") or full_path.startswith("static"):
+            return FileResponse(os.path.join(frontend_build_path, full_path))
+        index_path = os.path.join(frontend_build_path, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"detail": "Frontend not built"}
 
 # ENHANCED CORS configuration
 app.add_middleware(
