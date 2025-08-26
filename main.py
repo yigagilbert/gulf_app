@@ -28,24 +28,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Job Placement System API", version="1.0.0")
 
-
-# Serve static files at /static
-frontend_build_path = os.path.join(os.path.dirname(__file__), './frontend/build')
-if os.path.exists(frontend_build_path):
-    app.mount("/static", StaticFiles(directory=os.path.join(frontend_build_path, 'static')), name="static")
-
-    # Catch-all route for frontend (serves index.html for non-API, non-static routes)
-    from fastapi import Request
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_react_app(full_path: str, request: Request):
-        # Only serve index.html for non-API, non-static routes
-        if full_path.startswith("api") or full_path.startswith("static"):
-            return FileResponse(os.path.join(frontend_build_path, full_path))
-        index_path = os.path.join(frontend_build_path, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        return {"detail": "Frontend not built"}
-
 # ENHANCED CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -69,6 +51,23 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+# Serve static files at /static
+frontend_build_path = os.path.join(os.path.dirname(__file__), './frontend/build')
+if os.path.exists(frontend_build_path):
+    app.mount("/static", StaticFiles(directory=os.path.join(frontend_build_path, 'static')), name="static")
+
+    # Catch-all route for frontend (serves index.html for non-API, non-static routes)
+    from fastapi import Request
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_react_app(full_path: str, request: Request):
+        # Only serve index.html for non-API, non-static routes
+        if full_path.startswith("api") or full_path.startswith("static"):
+            return FileResponse(os.path.join(frontend_build_path, full_path))
+        index_path = os.path.join(frontend_build_path, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"detail": "Frontend not built"}
 
 # Include routers
 app.include_router(auth_router)
