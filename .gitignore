@@ -5,10 +5,10 @@ frontend/build/
 frontend/dist/
 
 # Python (backend)
-backend/venv/
-backend/__pycache__/
-backend/.env
-backend/uploads/
+venv/
+__pycache__/
+.env
+uploads/
 
 # VSCode
 .vscode/
