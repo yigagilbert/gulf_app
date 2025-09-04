@@ -33,3 +33,8 @@ junit.xml
 
 # Ignore package-lock.json if using yarn
 frontend/package-lock.json
+
+export_env.sh
+
+
+dummmy.txt

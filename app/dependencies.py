@@ -19,7 +19,7 @@ security = HTTPBearer()
 # JWT Configuration - Fixed to handle missing environment variables
 def get_jwt_config():
     """Get JWT configuration with proper error handling"""
-    secret_key = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET_KEY")
+    secret_key = os.getenv("SECRET_KEY", "qyvUhnfOstdZTFD_5OTFmDxdipvdz_3yfUsy8MogLRI")
     algorithm = os.getenv("ALGORITHM") or os.getenv("JWT_ALGORITHM", "HS256")
     
     if not secret_key:

@@ -100,6 +100,7 @@ class ClientProfile(Base):
     verification_notes = Column(Text)
     verified_by = Column(String, ForeignKey("users.id"))
     verified_at = Column(DateTime)
+    last_modified_by = Column(String, ForeignKey("users.id"))
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

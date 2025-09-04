@@ -68,6 +68,17 @@ Create a `.env` file:
 DATABASE_URL=postgresql://username:password@localhost:5432/jobplacement_db
 SECRET_KEY=your-super-secret-key-change-this-in-production
 ```
+Save the script to a file (e.g., export_env.sh) in your project directory
+
+Make it executable:
+```bash
+chmod +x export_env.sh
+```
+
+Run it with source (important - this ensures the variables are set in your current shell):
+```bash
+source ./export_env.sh
+```
 
 5. **Run the FastAPI server**
 ```bash

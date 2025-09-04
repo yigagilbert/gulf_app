@@ -1,132 +1,125 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Routes, Route, Navigate, BrowserRouter as Router } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import ClientDashboard from './components/ClientDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import APIService from './services/APIService';
+import AdminClientDetailsPage from './components/AdminClientDetailsPage';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AuthProvider, useAuth } from './AuthProvider';
+import { USER_ROLES } from './constants';  // Removed trailing comma
 
-// Auth Context
-const AuthContext = createContext();
+// Protected Route Component
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const { user, loading, isAuthenticated } = useAuth();
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (loading) return <LoadingSpinner />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    return <Navigate to="/unauthorized" replace />;
   }
-  return context;
+  return children;
 };
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Auth Page Component
+const AuthPage = () => {
+  const [isLogin, setIsLogin] = React.useState(true);
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+      <div className="max-w-md w-full space-y-8">
+        {isLogin ? (
+          <LoginForm onToggle={() => setIsLogin(true)} />
+        ) : (
+          <RegisterForm onToggle={() => setIsLogin(true)} />
+        )}
+      </div>
+    </div>
+  );
+};
 
-  // FIXED: Properly handle user authentication state
-  const checkAuthState = async () => {
-    const token = APIService.getAuthToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+// Main App Routes Component
+const AppRoutes = () => {
+  const { user, loading, isAuthenticated, isAdmin, isClient } = useAuth();
 
-    try {
-      // Try to get profile first to validate token
-      const profile = await APIService.getProfile();
-      
-      // Set user from profile data - handle the user relationship properly
-      if (profile) {
-        setUser({
-          id: profile.user_id,
-          email: profile.user?.email || 'Unknown', // Handle missing user relation
-          role: 'client' // Default role, should be fetched from user endpoint
-        });
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      APIService.clearAuthToken();
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    checkAuthState();
-  }, []);
-
-  const login = async (email, password) => {
-    try {
-      const response = await APIService.login({ email, password });
-      
-      // FIXED: Set user from login response directly
-      if (response.user) {
-        setUser(response.user);
-      } else {
-        // Fallback: fetch profile after login
-        await checkAuthState();
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      APIService.clearAuthToken();
-      setUser(null);
-      throw error; // Re-throw with original error message
-    }
-  };
-
-  const register = async (email, password) => {
-    try {
-      await APIService.register({ email, password });
-      // Don't auto-login after registration to match your success message pattern
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error; // Re-throw with original error message
-    }
-  };
-
-  const logout = async () => {
-    await APIService.logout();
-    setUser(null);
-  };
+  if (loading) return <LoadingSpinner />;
+  if (!isAuthenticated) return <AuthPage />;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <Routes>
+      {/* Admin Routes */}
+      {isAdmin && (
+        <>
+          <Route
+            path="/admin/clients/:clientId"
+            element={
+              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
+                <AdminClientDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </>
+      )}
+
+      {/* Client Routes */}
+      {isClient && (
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[USER_ROLES.CLIENT]}>
+              <ClientDashboard />
+            </ProtectedRoute>
+          }
+        />
+      )}
+
+      {/* Default redirect */}
+      <Route
+        path="/"
+        element={
+          <Navigate
+            to={isAdmin ? "/admin" : "/dashboard"}
+            replace
+          />
+        }
+      />
+
+      {/* Catch all */}
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to={isAdmin ? "/admin" : "/dashboard"}
+            replace
+          />
+        }
+      />
+    </Routes>
   );
 };
 
-const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  return isLogin ? (
-    <LoginForm onToggle={() => setIsLogin(false)} />
-  ) : (
-    <RegisterForm onToggle={() => setIsLogin(true)} />
-  );
-};
+// Main App Component
+const App = () => (
+  <ErrorBoundary>
+    <AppRoutes />
+  </ErrorBoundary>
+);
 
-const App = () => {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-  if (!user) {
-    return <AuthPage />;
-  }
-  return user.role === 'admin' || user.role === 'super_admin' ? (
-    <AdminDashboard />
-  ) : (
-    <ClientDashboard />
-  );
-};
-
+// Root Application Component
 export default function JobPlacementApp() {
   return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

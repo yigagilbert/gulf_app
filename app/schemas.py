@@ -120,6 +120,7 @@ class ClientProfileResponse(BaseModel):
     verified_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    last_modified_by: Optional[str]
     
     class Config:
         from_attributes = True
