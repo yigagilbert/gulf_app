@@ -10,6 +10,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { USER_ROLES } from './constants';  // Removed trailing comma
+import APIService from './services/APIService';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
