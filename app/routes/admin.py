@@ -24,23 +24,27 @@ def get_all_clients(
     db: Session = Depends(get_db)
 ):
     """Get all clients with optional filtering"""
-    query = db.query(ClientProfile).join(User)
+    query = db.query(ClientProfile)
     
     if status:
         query = query.filter(ClientProfile.status == status)
-    
-    if search:
-        query = query.filter(
-            (User.email.ilike(f"%{search}%")) |
-            (ClientProfile.first_name.ilike(f"%{search}%")) |
-            (ClientProfile.last_name.ilike(f"%{search}%"))
-        )
     
     clients = query.offset(skip).limit(limit).all()
     
     result = []
     for client in clients:
         user = db.query(User).filter(User.id == client.user_id).first()
+        
+        # Apply search filtering after getting user info
+        if search and user:
+            search_lower = search.lower()
+            if not (
+                search_lower in (user.email or '').lower() or
+                search_lower in (client.first_name or '').lower() or
+                search_lower in (client.last_name or '').lower()
+            ):
+                continue
+        
         result.append(AdminClientListResponse(
             id=client.id,
             user_email=user.email if user else "Unknown",
