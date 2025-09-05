@@ -1,122 +1,199 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import Optional
-from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole
-from app.schemas import UserCreate, ClientProfileCreate
+from typing import Optional, List
+import uuid
+from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus
+from app.schemas import (
+    UserCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
+    AdminClientListResponse, AdminVerificationUpdate, UserResponse
+)
 from app.database import get_db
 from app.dependencies import get_admin_user
-from app.utils import get_password_hash, verify_password, create_access_token
+from app.utils import get_password_hash, create_access_token
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-@router.get("/clients")
+@router.get("/clients", response_model=List[AdminClientListResponse])
 def get_all_clients(
     skip: int = 0,
     limit: int = 100,
     status: Optional[str] = None,
+    search: Optional[str] = None,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(ClientProfile)
+    """Get all clients with optional filtering"""
+    query = db.query(ClientProfile).join(User)
+    
     if status:
         query = query.filter(ClientProfile.status == status)
+    
+    if search:
+        query = query.filter(
+            (User.email.ilike(f"%{search}%")) |
+            (ClientProfile.first_name.ilike(f"%{search}%")) |
+            (ClientProfile.last_name.ilike(f"%{search}%"))
+        )
+    
     clients = query.offset(skip).limit(limit).all()
-    return clients
+    
+    result = []
+    for client in clients:
+        user = db.query(User).filter(User.id == client.user_id).first()
+        result.append(AdminClientListResponse(
+            id=client.id,
+            user_email=user.email if user else "Unknown",
+            first_name=client.first_name,
+            last_name=client.last_name,
+            status=client.status,
+            created_at=client.created_at,
+            verification_notes=client.verification_notes
+        ))
+    
+    return result
 
-@router.post("/clients")
-def create_client(
+@router.post("/clients/create", response_model=UserResponse)
+def admin_create_client(
     user_data: UserCreate,
-    profile_data: ClientProfileCreate = None,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    # Create user
-    user = User(
-        id=str(__import__('uuid').uuid4()),
-        email=user_data.email,
-        password_hash= get_password_hash(user_data.password),  # implement hash_password
-        role=UserRole.client
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    # Create profile
-    profile = ClientProfile(
-        id=str(__import__('uuid').uuid4()),
-        user_id=user.id,
-        status="new",
-        first_name=profile_data.first_name if profile_data else None,
-        last_name=profile_data.last_name if profile_data else None
-    )
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
-    return profile
+    """Admin creates a client account"""
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    try:
+        # Create user account
+        hashed_password = get_password_hash(user_data.password)
+        user = User(
+            id=str(uuid.uuid4()),
+            email=user_data.email,
+            password_hash=hashed_password,
+            role=UserRole.client,
+            is_active=True,
+            email_verified=True  # Admin-created accounts are pre-verified
+        )
+        db.add(user)
+        db.flush()
+        
+        # Create basic client profile
+        profile = ClientProfile(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            status=ClientStatus.new,
+            last_modified_by=admin_user.id
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(user)
+        
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            is_active=user.is_active
+        )
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create client: {str(e)}"
+        )
 
-@router.delete("/clients/{client_id}")
-def delete_client(
+@router.put("/clients/{client_id}/onboard", response_model=ClientProfileResponse)
+def admin_complete_onboarding(
     client_id: str,
+    profile_data: ClientProfileUpdate,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    # Optionally delete user and related documents/applications
-    db.delete(client)
-    db.commit()
-    return {"detail": "Client deleted"}
+    """Admin completes onboarding process on behalf of client"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Update profile with provided data
+    update_data = profile_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(client_profile, field) and value is not None:
+            setattr(client_profile, field, value)
+    
+    # Update metadata
+    client_profile.last_modified_by = admin_user.id
+    client_profile.updated_at = datetime.utcnow()
+    
+    # If all required fields are filled, mark as under_review
+    if _check_onboarding_complete(client_profile):
+        client_profile.status = ClientStatus.under_review
+    
+    try:
+        db.commit()
+        db.refresh(client_profile)
+        return client_profile
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update client profile: {str(e)}"
+        )
 
-# Update client profile details (admin only)
-@router.put("/clients/{client_id}")
-def update_client_profile(
-    client_id: str,
-    profile_data: dict,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    for field, value in profile_data.items():
-        if hasattr(client, field):
-            setattr(client, field, value)
-    client.last_modified_by = admin_user.id
-    client.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(client)
-    return client
-
-@router.put("/clients/{client_id}/verify")
-def verify_client(
-    client_id: str,
-    verification_notes: Optional[str] = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    client.status = "verified"
-    client.verified_by = admin_user.id
-    client.verified_at = datetime.utcnow()
-    client.verification_notes = verification_notes
-    client.updated_at = datetime.utcnow()
-    client.last_modified_by = admin_user.id
-    db.commit()
-    db.refresh(client)
-    return client
-@router.get("/clients/{client_id}")
+@router.get("/clients/{client_id}", response_model=ClientProfileResponse)
 def get_client_profile(
     client_id: str,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    return client
+    """Get detailed client profile for admin"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    return client_profile
+
+@router.put("/clients/{client_id}/verify", response_model=ClientProfileResponse)
+def verify_client(
+    client_id: str,
+    verification_data: AdminVerificationUpdate,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Verify client profile"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    client_profile.status = verification_data.status
+    if verification_data.verification_notes:
+        client_profile.verification_notes = verification_data.verification_notes
+    client_profile.verified_by = admin_user.id
+    client_profile.verified_at = datetime.utcnow()
+    client_profile.last_modified_by = admin_user.id
+    
+    try:
+        db.commit()
+        db.refresh(client_profile)
+        return client_profile
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify client: {str(e)}"
+        )
 
 @router.get("/clients/{client_id}/documents")
 def get_client_documents(
@@ -124,21 +201,104 @@ def get_client_documents(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+    """Get all documents for a specific client"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
     documents = db.query(Document).filter(Document.client_id == client_id).all()
     return documents
 
 @router.get("/dashboard_stats")
-def get_dashboard_stats(admin_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+def get_dashboard_stats(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get dashboard statistics for admin"""
     total_clients = db.query(ClientProfile).count()
+    new_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.new).count()
+    verified_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.verified).count()
     active_jobs = db.query(JobOpportunity).filter(JobOpportunity.is_active == True).count()
-    applications_today = db.query(JobApplication).filter(JobApplication.applied_date == datetime.utcnow().date()).count()
-    placement_rate = 0
+    total_applications = db.query(JobApplication).count()
+    
     return {
-        "totalClients": total_clients,
-        "activeJobs": active_jobs,
-        "applicationsToday": applications_today,
-        "placementRate": placement_rate
+        "total_clients": total_clients,
+        "new_clients": new_clients,
+        "verified_clients": verified_clients,
+        "active_jobs": active_jobs,
+        "total_applications": total_applications
+    }
+
+@router.get("/clients/{client_id}/onboarding-status")
+def get_client_onboarding_status(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Check client onboarding completion status"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    completion_status = _get_onboarding_completion(client_profile)
+    return {
+        "client_id": client_id,
+        "is_complete": completion_status["is_complete"],
+        "completion_percentage": completion_status["percentage"],
+        "missing_fields": completion_status["missing_fields"],
+        "status": client_profile.status
+    }
+
+def _check_onboarding_complete(profile: ClientProfile) -> bool:
+    """Check if onboarding is complete"""
+    required_fields = [
+        'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+        'phone_primary', 'address_current', 'emergency_contact_name',
+        'emergency_contact_phone', 'emergency_contact_relationship'
+    ]
+    
+    for field in required_fields:
+        if not getattr(profile, field, None):
+            return False
+    return True
+
+def _get_onboarding_completion(profile: ClientProfile) -> dict:
+    """Get detailed onboarding completion status"""
+    required_fields = [
+        'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+        'phone_primary', 'address_current', 'emergency_contact_name',
+        'emergency_contact_phone', 'emergency_contact_relationship'
+    ]
+    
+    optional_fields = [
+        'middle_name', 'nin', 'passport_number', 'passport_expiry',
+        'phone_secondary', 'address_permanent'
+    ]
+    
+    filled_required = 0
+    missing_fields = []
+    
+    for field in required_fields:
+        if getattr(profile, field, None):
+            filled_required += 1
+        else:
+            missing_fields.append(field)
+    
+    filled_optional = sum(1 for field in optional_fields if getattr(profile, field, None))
+    
+    total_fields = len(required_fields) + len(optional_fields)
+    total_filled = filled_required + filled_optional
+    
+    return {
+        "is_complete": len(missing_fields) == 0,
+        "percentage": round((total_filled / total_fields) * 100, 1),
+        "missing_fields": missing_fields,
+        "required_completed": filled_required,
+        "optional_completed": filled_optional
     }
