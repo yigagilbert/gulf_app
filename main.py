@@ -12,6 +12,7 @@ from app.routes.profile import router as profile_router
 from app.routes.documents import router as documents_router
 from app.routes.admin import router as admin_router
 from app.routes.jobs import router as jobs_router
+from app.routes.chat import router as chat_router
 # Default admin creation (utility function)
 from app.models import User
 from app.utils import get_password_hash
