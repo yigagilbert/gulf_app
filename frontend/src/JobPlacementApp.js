@@ -78,7 +78,7 @@ const AppRoutes = () => {
           path="/dashboard"
           element={
             <ProtectedRoute allowedRoles={[USER_ROLES.CLIENT]}>
-              <ClientDashboard />
+              <OnboardingCheck />
             </ProtectedRoute>
           }
         />
