@@ -38,3 +38,7 @@ export_env.sh
 
 
 dummmy.txt
+-e 
+# Environment files
+*.env
+*.env.*
