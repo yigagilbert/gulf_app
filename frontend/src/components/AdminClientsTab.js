@@ -1,10 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  Users, UserPlus, Search, Filter, Eye, Edit, Check, X, 
+  ChevronDown, Mail, Phone, Calendar, AlertCircle, 
+  RefreshCw, MoreHorizontal, Settings
+} from 'lucide-react';
+import APIService from '../services/APIService';
+import AdminClientCreation from './AdminClientCreation';
+import LoadingSpinner from './LoadingSpinner';
+import Toast from './Toast';
 
-const AdminClientsTab = ({ clients }) => {
+const AdminClientsTab = () => {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const clientsData = await APIService.request('/admin/clients');
+      setClients(clientsData || []);
+    } catch (err) {
+      setError('Failed to load clients');
+      console.error('Load clients error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleClientCreated = (newClient) => {
+    setSuccess(`Client account created successfully for ${newClient.email}`);
+    loadClients(); // Refresh the list
+    setTimeout(() => setSuccess(null), 5000);
+  };
+
+  const handleVerifyClient = async (clientId, status, notes = '') => {
+    try {
+      await APIService.request(`/admin/clients/${clientId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: status,
+          verification_notes: notes
+        })
+      });
+      
+      setSuccess(`Client ${status === 'verified' ? 'verified' : 'status updated'} successfully`);
+      loadClients();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update client status');
+      console.error('Verify client error:', err);
+    }
+  };
 
   const filteredClients = clients.filter(client => {
     const matchesStatus = !statusFilter || client.status === statusFilter;
@@ -16,67 +76,230 @@ const AdminClientsTab = ({ clients }) => {
     return matchesStatus && matchesSearch;
   });
 
-  const statusOptions = Array.from(new Set(clients.map(c => c.status))).filter(Boolean);
+  const statusOptions = ['new', 'under_review', 'verified', 'rejected'];
+  const statusColors = {
+    new: 'bg-blue-100 text-blue-800',
+    under_review: 'bg-yellow-100 text-yellow-800',
+    verified: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800'
+  };
+
+  const getDisplayName = (client) => {
+    if (client.first_name || client.last_name) {
+      return `${client.first_name || ''} ${client.last_name || ''}`.trim();
+    }
+    return client.user_email || 'Unknown';
+  };
+
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Client Management</h2>
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg flex-1"
-        />
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg"
+    <div className="space-y-6">
+      {error && <Toast type="error" message={error} />}
+      {success && <Toast type="success" message={success} />}
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Client Management</h2>
+          <p className="text-gray-600 mt-1">
+            Manage client accounts, onboarding, and verification status
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
         >
-          <option value="">All Statuses</option>
-          {statusOptions.map(status => (
-            <option key={status} value={status}>{status}</option>
-          ))}
-        </select>
+          <UserPlus className="h-5 w-5 mr-2" />
+          Create Client
+        </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredClients.length === 0 ? (
+
+      {/* Filters and Search */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none bg-white pl-4 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Statuses</option>
+              {statusOptions.map(status => (
+                <option key={status} value={status}>
+                  {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+          </div>
+          
+          <button
+            onClick={loadClients}
+            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statusOptions.map(status => {
+          const count = clients.filter(c => c.status === status).length;
+          return (
+            <div key={status} className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">{count}</p>
+                </div>
+                <div className={`p-2 rounded-lg ${statusColors[status]}`}>
+                  <Users className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Clients Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No clients found.</td>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
-            ) : (
-              filteredClients.map(client => (
-                <tr key={client.id} className="hover:bg-blue-50 transition">
-                  <td className="px-4 py-2">{client.first_name} {client.last_name}</td>
-                  <td className="px-4 py-2">{client.user_email}</td>
-                  <td className="px-4 py-2">{client.status}</td>
-                  <td className="px-4 py-2">{new Date(client.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-2">
-                    <button
-                      className="text-blue-600 hover:underline"
-                      onClick={() => navigate(`/admin/clients/${client.id}`)}
-                    >
-                      View / Edit
-                    </button>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-12 text-center">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 mb-2">No clients found</p>
+                    {searchTerm || statusFilter ? (
+                      <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
+                    ) : (
+                      <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        Create your first client
+                      </button>
+                    )}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filteredClients.map((client) => (
+                  <tr key={client.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                            <Users className="h-5 w-5 text-gray-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {getDisplayName(client)}
+                          </div>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            <Mail className="h-4 w-4 mr-1" />
+                            {client.user_email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {client.status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {client.created_at ? new Date(client.created_at).toLocaleDateString() : 'Unknown'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => navigate(`/admin/clients/${client.id}`)}
+                          className="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        
+                        {client.status === 'under_review' && (
+                          <>
+                            <button
+                              onClick={() => handleVerifyClient(client.id, 'verified')}
+                              className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
+                              title="Verify Client"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleVerifyClient(client.id, 'rejected', 'Rejected by admin')}
+                              className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                              title="Reject Client"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        <button
+                          className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-50"
+                          title="More Actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Create Client Modal */}
+      <AdminClientCreation
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleClientCreated}
+      />
     </div>
   );
 };
