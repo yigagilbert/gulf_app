@@ -8,7 +8,7 @@ import { STORAGE_KEYS } from '../constants';  // Added for key consistency
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001',
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
