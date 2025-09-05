@@ -4,6 +4,7 @@ import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import ClientDashboard from './components/ClientDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import OnboardingWizard from './components/OnboardingWizard';
 import AdminClientDetailsPage from './components/AdminClientDetailsPage';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
