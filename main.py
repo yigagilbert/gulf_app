@@ -57,6 +57,7 @@ app.include_router(profile_router)
 app.include_router(documents_router)
 app.include_router(admin_router)
 app.include_router(jobs_router)
+app.include_router(chat_router)
 
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
