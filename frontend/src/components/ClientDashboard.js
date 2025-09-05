@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   LogOut, User, FileText, Briefcase, Calendar, 
   Bell, Settings, ChevronDown, Search, Filter,
-  AlertCircle, CheckCircle, Clock, TrendingUp, BarChart3
+  AlertCircle, CheckCircle, Clock, TrendingUp, BarChart3, Menu, X
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import APIService, { APIError } from '../services/APIService';
