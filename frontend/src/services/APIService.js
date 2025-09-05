@@ -631,6 +631,30 @@ class APIService {
     return this.request(`/admin/clients/${clientId}/documents`);
   }
 
+  static async uploadProfilePhoto(clientId, formData) {
+    return this.request(`/admin/clients/${clientId}/photo`, {
+      method: 'POST',
+      body: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
+
+  // ============ CHAT ENDPOINTS ============
+  static async sendChatMessage(receiverId, content) {
+    return this.request('/chat/send', {
+      method: 'POST',
+      body: JSON.stringify({ receiver_id: receiverId, content })
+    });
+  }
+
+  static async getChatHistory(withUserId) {
+    return this.request(`/chat/history?with_user_id=${withUserId}`);
+  }
+
+  static async getAdminInbox() {
+    return this.request('/chat/admin/inbox');
+  }
+
   // ============ UTILITY METHODS ============
 
   static addRequestInterceptor(interceptor) {

@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import Optional
 import logging
+from fastapi import UploadFile, File
 
 from app.models import User, ClientProfile
 from app.schemas import ClientProfileUpdate, ClientProfileResponse
@@ -168,3 +169,21 @@ def get_profile_basic_info(
 def profile_options():
     """Handle preflight requests"""
     return {"message": "OK"}
+
+
+@router.post("/me/photo")
+def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Save file to disk or cloud, generate URL
+    file_location = f"static/profile_photos/{current_user.id}_{file.filename}"
+    with open(file_location, "wb") as f:
+        f.write(file.file.read())
+    # Update profile
+    profile = db.query(ClientProfile).filter(ClientProfile.user_id == current_user.id).first()
+    profile.profile_photo_url = file_location
+    db.commit()
+    db.refresh(profile)
+    return {"profile_photo_url": file_location}

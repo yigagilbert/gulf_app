@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../AuthProvider';
 import APIService, { APIError } from '../services/APIService';
 import ProfileTab from './ProfileTab';
+import ClientChatWidget from './ClientChatWidget';
 import DocumentsTab from './DocumentsTab';
 import JobsTab from './JobsTab';
 import ApplicationsTab from './ApplicationsTab';
@@ -139,9 +140,11 @@ const StatusBadge = ({ status, size = 'md' }) => {
   );
 };
 
-const getUserDisplayName = () => {
-  // Logic to get display name, inferred
-  return 'User';
+const getUserDisplayName = (profile, user) => {
+  if (profile?.first_name || profile?.last_name) {
+    return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+  }
+  return user?.email || 'User';
 };
 
 const ClientDashboard = () => {
@@ -157,29 +160,48 @@ const ClientDashboard = () => {
 
   const { logout, user } = useAuth();
 
-  const loadDashboardData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // PATCH: Improved data loading and mapping
+const loadDashboardData = useCallback(async () => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      const [profileData, documentsData, jobsData, applicationsData] = await Promise.all([
-        APIService.getProfile(),
-        APIService.getDocuments(),
-        APIService.getJobs(),
-        APIService.getApplications()
-      ]);
-      setProfile(profileData);
-      setDocuments(documentsData);
-      setJobs(jobsData);
-      setApplications(applicationsData);
-      // Notifications inferred as part of data
-      setNotifications([]); // Placeholder
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    // Add logs before each API call
+    console.log('Fetching profile...');
+    const profileData = await APIService.getProfile();
+    console.log('Profile data:', profileData);
+
+    console.log('Fetching documents...');
+    const documentsData = await APIService.getDocuments();
+    console.log('Documents data:', documentsData);
+
+    console.log('Fetching jobs...');
+    const jobsData = await APIService.getJobs();
+    console.log('Jobs data:', jobsData);
+
+    console.log('Fetching applications...');
+    const applicationsData = await APIService.getMyApplications();
+    console.log('Applications data:', applicationsData);
+
+    setProfile(profileData);
+    setDocuments(documentsData);
+    setJobs(jobsData);
+
+    const mappedApplications = applicationsData.map(app => ({
+      ...app,
+      job_title: app.job_title || (jobsData.find(j => j.id === app.job_id)?.title || 'Unknown'),
+      status: app.application_status || app.status || 'pending'
+    }));
+    setApplications(mappedApplications);
+
+    setNotifications([]); // Placeholder for notifications
+  } catch (err) {
+    console.error('Dashboard data load error:', err);
+    setError(err instanceof APIError ? err.message : 'Failed to load dashboard data');
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -190,12 +212,21 @@ const ClientDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {error && <Toast type="error" message={error} />}
-
+      <ClientChatWidget user={user} />
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Briefcase className="h-8 w-8 text-green-600" />
+            {/* PATCH: Show profile photo if available */}
+            {profile?.profile_photo_url ? (
+              <img
+                src={profile.profile_photo_url}
+                alt="Profile"
+                className="h-8 w-8 rounded-full border-2 border-green-600 object-cover"
+              />
+            ) : (
+              <Briefcase className="h-8 w-8 text-green-600" />
+            )}
             <h1 className="text-xl font-bold text-gray-900">Client Dashboard</h1>
           </div>
           <div className="flex items-center space-x-4">
@@ -230,9 +261,19 @@ const ClientDashboard = () => {
             <div className="relative">
               <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg">
                 <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                  <User className="h-5 w-5 text-gray-500" />
+                  {profile?.profile_photo_url ? (
+                    <img
+                      src={profile.profile_photo_url}
+                      alt="Profile"
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-5 w-5 text-gray-500" />
+                  )}
                 </div>
-                <span className="text-sm font-medium text-gray-900">{getUserDisplayName()}</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {getUserDisplayName(profile, user)}
+                </span>
                 <ChevronDown className="h-4 w-4 text-gray-500" />
               </button>
               {/* Dropdown menu would go here */}
@@ -282,7 +323,7 @@ const ClientDashboard = () => {
             <div>
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Welcome back, {getUserDisplayName()}!
+                  Welcome back, {getUserDisplayName(profile, user)}!
                 </h2>
                 <p className="text-gray-600">
                   Here's what's happening with your job placement journey.

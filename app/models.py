@@ -172,3 +172,12 @@ class JobApplication(Base):
     # Relationships
     client = relationship("ClientProfile", back_populates="job_applications")
     job = relationship("JobOpportunity", back_populates="applications")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(String, primary_key=True, index=True)
+    sender_id = Column(String, ForeignKey("users.id"), nullable=False)
+    receiver_id = Column(String, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    is_read = Column(Boolean, default=False)

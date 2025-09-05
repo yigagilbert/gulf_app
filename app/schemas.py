@@ -77,6 +77,7 @@ class ClientProfileCreate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     emergency_contact_relationship: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
 class ClientProfileUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -95,6 +96,7 @@ class ClientProfileUpdate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     emergency_contact_relationship: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
 class ClientProfileResponse(BaseModel):
     id: str
@@ -115,6 +117,7 @@ class ClientProfileResponse(BaseModel):
     emergency_contact_name: Optional[str]
     emergency_contact_phone: Optional[str]
     emergency_contact_relationship: Optional[str]
+    profile_photo_url: Optional[str] = None
     status: ClientStatusEnum
     verification_notes: Optional[str]
     verified_at: Optional[datetime]
@@ -218,3 +221,18 @@ class AdminClientListResponse(BaseModel):
 class AdminVerificationUpdate(BaseModel):
     status: ClientStatusEnum
     verification_notes: Optional[str] = None
+
+class ChatMessageCreate(BaseModel):
+    receiver_id: str
+    content: str
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    sender_id: str
+    receiver_id: str
+    content: str
+    sent_at: datetime
+    is_read: bool
+
+    class Config:
+        from_attributes = True
