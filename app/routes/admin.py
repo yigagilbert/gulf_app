@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional, List
 import uuid
+import os
+import shutil
+from pathlib import Path
 from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus
 from app.schemas import (
     UserCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
-    AdminClientListResponse, AdminVerificationUpdate, UserResponse
+    AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate
 )
 from app.database import get_db
 from app.dependencies import get_admin_user
