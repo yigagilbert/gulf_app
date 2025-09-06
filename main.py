@@ -61,6 +61,15 @@ app.include_router(admin_router)
 app.include_router(jobs_router)
 app.include_router(chat_router)
 
+# Create uploads directory if it doesn't exist
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+(uploads_dir / "profile_photos").mkdir(exist_ok=True)
+(uploads_dir / "client_documents").mkdir(exist_ok=True)
+
+# Mount static files for serving uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
 
