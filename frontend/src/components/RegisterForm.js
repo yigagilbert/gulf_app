@@ -158,8 +158,19 @@ const RegisterForm = ({ onToggle }) => {
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
-        <p className="text-gray-600">Start your job placement journey</p>
+        <div className="mx-auto h-20 w-20 mb-4 flex items-center justify-center">
+          <img 
+            src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png" 
+            alt="Gulf Consultants Logo" 
+            className="h-full w-full object-contain"
+          />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Join Gulf Consultants
+        </h2>
+        <p className="text-gray-600">
+          Create your account to access exclusive job opportunities
+        </p>
       </div>
 
       {success && (
