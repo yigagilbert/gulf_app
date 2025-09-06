@@ -23,7 +23,7 @@ const DashboardStats = ({ profile, documents, applications }) => {
       suffix: '',
       icon: FileText,
       color: 'bg-green-500',
-      description: 'Upload required documents to complete your profile'
+      description: 'Upload required documents for international job applications'
     },
     {
       name: 'Job Applications',
@@ -31,7 +31,7 @@ const DashboardStats = ({ profile, documents, applications }) => {
       suffix: '',
       icon: Briefcase,
       color: 'bg-blue-500',
-      description: 'Total number of job applications submitted'
+      description: 'International job opportunities you have applied for'
     },
     {
       name: 'Profile Status',
@@ -39,7 +39,7 @@ const DashboardStats = ({ profile, documents, applications }) => {
       suffix: '',
       icon: CheckCircle,
       color: profile?.status === 'verified' ? 'bg-green-500' : 'bg-yellow-500',
-      description: 'Current verification status of your profile'
+      description: 'Current verification status for overseas employment'
     },
     {
       name: 'Active Applications',
@@ -47,7 +47,7 @@ const DashboardStats = ({ profile, documents, applications }) => {
       suffix: '',
       icon: Clock,
       color: 'bg-purple-500',
-      description: 'Applications currently under review'
+      description: 'Job applications currently under review by employers'
     }
   ], [profile, documents, applications]);
 
