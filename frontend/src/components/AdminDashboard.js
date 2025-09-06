@@ -231,11 +231,15 @@ const AdminDashboard = () => {
           <div className="flex flex-col w-64 bg-white shadow-sm border-r border-gray-200">
             <div className="flex items-center px-6 py-6 border-b border-gray-200">
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <Settings className="h-6 w-6 text-white" />
+                <div className="h-10 w-10 flex items-center justify-center">
+                  <img
+                    src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png"
+                    alt="Gulf Consultants"
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Gulf Consultants</h2>
                   <p className="text-sm text-gray-600">Job Placement System</p>
                 </div>
               </div>
