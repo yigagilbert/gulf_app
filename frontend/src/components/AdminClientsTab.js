@@ -90,6 +90,31 @@ const AdminClientsTab = () => {
     rejected: 'bg-red-100 text-red-800'
   };
 
+  const handleDocumentUploaded = async (document) => {
+    setSuccess(`Document uploaded successfully`);
+    // Refresh client documents
+    await loadClientDocuments(selectedClient.id);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const loadClientDocuments = async (clientId) => {
+    try {
+      const documents = await APIService.request(`/admin/clients/${clientId}/documents`);
+      setClientDocuments(prev => ({ ...prev, [clientId]: documents }));
+    } catch (err) {
+      console.error('Failed to load client documents:', err);
+    }
+  };
+
+  const handleViewDocument = (document) => {
+    const fileUrl = `${process.env.REACT_APP_BACKEND_URL}${document.file_path}`;
+    setSelectedDocument({
+      ...document,
+      url: fileUrl
+    });
+    setShowPDFViewer(true);
+  };
+
   const getDisplayName = (client) => {
     if (client.first_name || client.last_name) {
       return `${client.first_name || ''} ${client.last_name || ''}`.trim();
