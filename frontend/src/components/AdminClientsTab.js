@@ -321,6 +321,28 @@ const AdminClientsTab = () => {
                         )}
                         
                         <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowDocumentUpload(true);
+                          }}
+                          className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
+                          title="Upload Document"
+                        >
+                          <Upload className="h-4 w-4" />
+                        </button>
+                        
+                        <button
+                          onClick={async () => {
+                            await loadClientDocuments(client.id);
+                            setSelectedClient(client);
+                          }}
+                          className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
+                          title="View Documents"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </button>
+                        
+                        <button
                           className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-50"
                           title="More Actions"
                         >
