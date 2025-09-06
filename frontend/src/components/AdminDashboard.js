@@ -194,12 +194,16 @@ const AdminDashboard = () => {
       <header className="bg-white shadow-sm lg:hidden">
         <div className="px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <Settings className="h-5 w-5 text-white" />
+            <div className="h-8 w-8 flex items-center justify-center">
+              <img
+                src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png"
+                alt="Gulf Consultants"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Admin Panel</h1>
-              <p className="text-sm text-gray-600">Manage your platform</p>
+              <h1 className="text-lg font-semibold text-gray-900">Gulf Consultants</h1>
+              <p className="text-sm text-gray-600">Admin Panel</p>
             </div>
           </div>
           
