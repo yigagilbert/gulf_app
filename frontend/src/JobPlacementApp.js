@@ -32,7 +32,7 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
         {isLogin ? (
-          <LoginForm onToggle={() => setIsLogin(true)} />
+          <LoginForm onToggle={() => setIsLogin(false)} />
         ) : (
           <RegisterForm onToggle={() => setIsLogin(true)} />
         )}
