@@ -221,8 +221,19 @@ const AdminClientsTab = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-gray-600" />
+                          {client.profile_photo_url ? (
+                            <img 
+                              src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                              alt={getDisplayName(client)}
+                              className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                            {getDisplayName(client).charAt(0).toUpperCase()}
                           </div>
                         </div>
                         <div className="ml-4">
