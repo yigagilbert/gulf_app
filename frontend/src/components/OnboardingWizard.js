@@ -452,8 +452,15 @@ const OnboardingWizard = ({ onComplete }) => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Your Journey!</h1>
-          <p className="text-gray-600">Let's get your profile set up so we can find the perfect job opportunities for you.</p>
+          <div className="mx-auto h-24 w-24 mb-6 flex items-center justify-center">
+            <img 
+              src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png" 
+              alt="Gulf Consultants Logo" 
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Gulf Consultants!</h1>
+          <p className="text-gray-600">Your Travel Partner - Let's complete your profile to find the perfect job opportunities abroad.</p>
         </div>
 
         {/* Progress Steps */}
