@@ -266,6 +266,62 @@ def _get_required_fields() -> list:
         'emergency_contact_phone', 'emergency_contact_relationship'
     ]
 
+@router.post("/me/photo")
+def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload profile photo for current user"""
+    try:
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only JPEG and PNG images are allowed"
+            )
+        
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads/profile_photos")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = file.filename.split(".")[-1]
+        filename = f"{current_user.id}_{uuid.uuid4().hex}.{file_extension}"
+        file_path = upload_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Update profile with photo URL
+        profile = db.query(ClientProfile).filter(ClientProfile.user_id == current_user.id).first()
+        if not profile:
+            profile = ClientProfile(
+                id=str(uuid.uuid4()),
+                user_id=current_user.id,
+                status=ClientStatus.new
+            )
+            db.add(profile)
+        
+        profile.profile_photo_url = f"/uploads/profile_photos/{filename}"
+        profile.updated_at = datetime.utcnow()
+        profile.last_modified_by = current_user.id
+        
+        db.commit()
+        db.refresh(profile)
+        
+        return {"photo_url": profile.profile_photo_url, "message": "Profile photo uploaded successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error uploading profile photo for user {current_user.id}: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload profile photo: {str(e)}"
+        )
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = _get_required_fields()
