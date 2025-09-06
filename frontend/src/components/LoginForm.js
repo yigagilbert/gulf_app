@@ -72,14 +72,18 @@ const LoginForm = ({ onToggle }) => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
-            <User className="h-8 w-8 text-white" />
+          <div className="mx-auto h-20 w-20 mb-4 flex items-center justify-center">
+            <img 
+              src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png" 
+              alt="Gulf Consultants Logo" 
+              className="h-full w-full object-contain"
+            />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome Back
+            Welcome to Gulf Consultants
           </h2>
           <p className="text-gray-600">
-            Sign in to your account to continue
+            Your Travel Partner - Sign in to access your job placement portal
           </p>
         </div>
 
