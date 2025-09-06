@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, UserPlus, Search, Filter, Eye, Edit, Check, X, 
   ChevronDown, Mail, Phone, Calendar, AlertCircle, 
-  RefreshCw, MoreHorizontal, Settings
+  RefreshCw, MoreHorizontal, Settings, Upload, FileText
 } from 'lucide-react';
 import APIService from '../services/APIService';
 import AdminClientCreation from './AdminClientCreation';
+import AdminDocumentUpload from './AdminDocumentUpload';
+import PDFViewer from './PDFViewer';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
 
