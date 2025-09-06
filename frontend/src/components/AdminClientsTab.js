@@ -22,6 +22,10 @@ const AdminClientsTab = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showPDFViewer, setShowPDFViewer] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [clientDocuments, setClientDocuments] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
