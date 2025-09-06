@@ -337,10 +337,10 @@ const ClientDashboard = () => {
               <div>
                 <div className="mb-8">
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                    Welcome back{profile ? `, ${profile.first_name || 'there'}` : ''}!
+                    Welcome to Gulf Consultants{profile ? `, ${profile.first_name || 'there'}` : ''}!
                   </h1>
                   <p className="text-gray-600">
-                    Here's an overview of your job placement journey.
+                    Your trusted travel partner for international career opportunities and job placements abroad.
                   </p>
                 </div>
                 
