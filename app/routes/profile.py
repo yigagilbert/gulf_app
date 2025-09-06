@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import Optional
 import logging
 import uuid
-from fastapi import UploadFile, File
+import os
+import shutil
+from pathlib import Path
 
 from app.models import User, ClientProfile, ClientStatus
 from app.schemas import ClientProfileUpdate, ClientProfileResponse, ClientProfileCreate
