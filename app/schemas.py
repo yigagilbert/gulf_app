@@ -129,6 +129,12 @@ class ClientProfileResponse(BaseModel):
         from_attributes = True
 
 # Document schemas
+class DocumentCreate(BaseModel):
+    document_type: str
+    file_name: str
+    file_path: str
+    file_size: Optional[int] = None
+    
 class DocumentUploadResponse(BaseModel):
     id: str
     document_type: DocumentTypeEnum
