@@ -185,23 +185,19 @@ const ClientDashboard = () => {
       {/* Mobile Header */}
       <header className="bg-white shadow-sm lg:hidden">
         <div className="px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {profile?.profile_photo_url ? (
-              <img
-                src={profile.profile_photo_url}
-                alt="Profile"
-                className="h-8 w-8 rounded-full border-2 border-blue-600 object-cover"
-              />
-            ) : (
-              <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome back!</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 flex items-center justify-center">
+            <img
+              src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png"
+              alt="Gulf Consultants"
+              className="h-full w-full object-contain"
+            />
           </div>
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">Gulf Consultants</h1>
+            <p className="text-sm text-gray-600">Your Travel Partner</p>
+          </div>
+        </div>
           
           <div className="flex items-center space-x-2">
             <button 
