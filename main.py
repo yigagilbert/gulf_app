@@ -5,6 +5,8 @@ import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.database import Base, engine
 # Import routers
 from app.routes.auth import router as auth_router
