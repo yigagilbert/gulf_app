@@ -275,6 +275,80 @@ def _check_onboarding_complete(profile: ClientProfile) -> bool:
             return False
     return True
 
+@router.post("/clients/{client_id}/documents/upload")
+def admin_upload_client_document(
+    client_id: str,
+    file: UploadFile = File(...),
+    document_type: str = "other",
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin uploads document for a specific client"""
+    # Verify client exists
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    try:
+        # Validate file type
+        allowed_types = [
+            "application/pdf", "image/jpeg", "image/png", "image/jpg",
+            "application/msword", 
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF, DOC, DOCX, and image files are allowed"
+            )
+        
+        # Create uploads directory
+        upload_dir = Path("uploads/client_documents")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = file.filename.split(".")[-1]
+        filename = f"{client_id}_{document_type}_{uuid.uuid4().hex}.{file_extension}"
+        file_path = upload_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Create document record
+        document = Document(
+            id=str(uuid.uuid4()),
+            client_id=client_id,
+            document_type=document_type,
+            file_name=file.filename,
+            file_path=f"/uploads/client_documents/{filename}",
+            file_size=os.path.getsize(file_path),
+            uploaded_by=admin_user.id,
+            upload_date=datetime.utcnow()
+        )
+        
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+        
+        return {
+            "id": document.id,
+            "document_type": document.document_type,
+            "file_name": document.file_name,
+            "file_path": document.file_path,
+            "message": "Document uploaded successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload document: {str(e)}"
+        )
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = [
