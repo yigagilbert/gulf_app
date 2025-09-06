@@ -364,6 +364,86 @@ const AdminClientsTab = () => {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleClientCreated}
       />
+
+      {/* Document Upload Modal */}
+      {selectedClient && (
+        <AdminDocumentUpload
+          isOpen={showDocumentUpload}
+          onClose={() => {
+            setShowDocumentUpload(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          onSuccess={handleDocumentUploaded}
+        />
+      )}
+
+      {/* PDF Viewer */}
+      {selectedDocument && (
+        <PDFViewer
+          isOpen={showPDFViewer}
+          onClose={() => {
+            setShowPDFViewer(false);
+            setSelectedDocument(null);
+          }}
+          fileUrl={selectedDocument.url}
+          fileName={selectedDocument.file_name}
+        />
+      )}
+
+      {/* Client Documents Modal */}
+      {selectedClient && clientDocuments[selectedClient.id] && (
+        <div className="fixed inset-0 z-40 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setSelectedClient(null)}
+            ></div>
+            
+            <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Documents for {getDisplayName(selectedClient)}
+                </h3>
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clientDocuments[selectedClient.id]?.length === 0 ? (
+                  <div className="col-span-full text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No documents uploaded yet</p>
+                  </div>
+                ) : (
+                  clientDocuments[selectedClient.id]?.map((doc) => (
+                    <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <FileText className="h-8 w-8 text-blue-500" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{doc.document_type}</h4>
+                          <p className="text-sm text-gray-500">{doc.file_name}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewDocument(doc)}
+                        className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        View Document
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
