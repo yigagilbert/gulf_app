@@ -240,8 +240,8 @@ const AdminClientsTab = () => {
         })}
       </div>
 
-      {/* Clients Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Clients Table - Desktop */}
+      <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -320,13 +320,16 @@ const AdminClientsTab = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-1" />
-                        {client.created_at ? new Date(client.created_at).toLocaleDateString() : 'Unknown'}
+                        {client.created_at ? formatDate(client.created_at) : 'N/A'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => navigate(`/admin/clients/${client.id}`)}
+                          onClick={() => {
+                            setSelectedClient(client);
+                            navigate(`/admin/clients/${client.id}`);
+                          }}
                           className="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
                           title="View Details"
                         >
@@ -410,6 +413,122 @@ const AdminClientsTab = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Client Cards - Mobile & Tablet */}
+      <div className="lg:hidden space-y-4">
+        {filteredClients.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {loading ? 'Loading clients...' : 'No clients found'}
+            </p>
+          </div>
+        ) : (
+          filteredClients.map((client) => (
+            <div key={client.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+              {/* Client Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 flex-shrink-0">
+                    {client.profile_photo_url ? (
+                      <img
+                        className="h-12 w-12 rounded-full object-cover"
+                        src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                        alt={getDisplayName(client)}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                      {getDisplayName(client).charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-medium text-gray-900 truncate">
+                      {getDisplayName(client)}
+                    </h3>
+                    <p className="text-sm text-gray-500 truncate">
+                      {client.user_email}
+                    </p>
+                    <div className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {statusLabels[client.status] || client.status || 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Client Info */}
+              <div className="mb-4 text-sm text-gray-600">
+                <p>Created: {client.created_at ? formatDate(client.created_at) : 'N/A'}</p>
+              </div>
+
+              {/* Action Buttons - Mobile */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    navigate(`/admin/clients/${client.id}`);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDocumentUpload(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDocumentViewer(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Documents</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowStatusUpdate(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Status</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDeleteConfirmation(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Create Client Modal */}
