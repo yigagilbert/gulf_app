@@ -460,6 +460,13 @@ class APIServiceClass {
     });
   }
 
+  async updateClientStatus(clientId, status) {
+    return this.request(`/admin/clients/${clientId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: status })
+    });
+  }
+
   async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
