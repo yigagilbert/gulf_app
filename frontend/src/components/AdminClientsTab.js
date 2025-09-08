@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, UserPlus, Search, Filter, Eye, Edit, Check, X, 
   ChevronDown, Mail, Phone, Calendar, AlertCircle, 
-  RefreshCw, MoreHorizontal, Settings, Upload, FileText
+  RefreshCw, MoreHorizontal, Settings, Upload, FileText, Trash2
 } from 'lucide-react';
 import APIService from '../services/APIService';
 import AdminClientCreation from './AdminClientCreation';
