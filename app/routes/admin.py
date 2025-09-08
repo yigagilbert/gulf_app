@@ -329,8 +329,8 @@ def admin_upload_client_document(
             file_name=file.filename,
             file_url=f"/uploads/client_documents/{filename}",
             file_size=os.path.getsize(file_path),
-            uploaded_by=admin_user.id,
-            upload_date=datetime.utcnow()
+            mime_type=file.content_type,
+            uploaded_at=datetime.utcnow()
         )
         
         db.add(document)
