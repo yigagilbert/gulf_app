@@ -189,16 +189,68 @@ class JobPlacementAPITester:
         
         headers = {'Authorization': f'Bearer {self.admin_token}'}
         
-        # Test /api/admin/clients
-        success, _ = self.run_test(
-            "GET Admin Clients",
+        # Test /api/admin/clients - Client List
+        success1, clients_response = self.run_test(
+            "GET Admin Clients List",
             "GET",
             "admin/clients",
             200,
             headers=headers
         )
         
-        return success
+        if not success1:
+            return False
+            
+        # Verify client list structure
+        if isinstance(clients_response, list):
+            print(f"   ✅ Client list returned {len(clients_response)} clients")
+            if len(clients_response) > 0:
+                client = clients_response[0]
+                expected_fields = ['id', 'user_email', 'first_name', 'last_name', 'status', 'created_at']
+                missing_fields = [field for field in expected_fields if field not in client]
+                if missing_fields:
+                    print(f"   ⚠️  Missing fields in client list response: {missing_fields}")
+                else:
+                    print(f"   ✅ Client list structure is correct")
+        else:
+            print(f"   ❌ Expected list, got {type(clients_response)}")
+            
+        # Test specific client ID from review request
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        success2, client_details = self.run_test(
+            f"GET Specific Client Details ({specific_client_id})",
+            "GET",
+            f"admin/clients/{specific_client_id}",
+            200,  # Expecting 200 if client exists, 404 if not
+            headers=headers
+        )
+        
+        # If specific client doesn't exist, test with first available client
+        if not success2 and isinstance(clients_response, list) and len(clients_response) > 0:
+            first_client_id = clients_response[0]['id']
+            print(f"   ℹ️  Specific client not found, testing with available client: {first_client_id}")
+            success2, client_details = self.run_test(
+                f"GET Available Client Details ({first_client_id})",
+                "GET",
+                f"admin/clients/{first_client_id}",
+                200,
+                headers=headers
+            )
+            
+        # Verify client details structure
+        if success2 and isinstance(client_details, dict):
+            expected_detail_fields = [
+                'id', 'user_id', 'first_name', 'last_name', 'status', 
+                'created_at', 'updated_at'
+            ]
+            missing_detail_fields = [field for field in expected_detail_fields if field not in client_details]
+            if missing_detail_fields:
+                print(f"   ⚠️  Missing fields in client details response: {missing_detail_fields}")
+            else:
+                print(f"   ✅ Client details structure is correct")
+                print(f"   ✅ Client status: {client_details.get('status', 'Unknown')}")
+        
+        return success1 and success2
 
     def test_jwt_validation(self):
         """Test JWT token validation"""
