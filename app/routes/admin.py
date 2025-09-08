@@ -455,6 +455,53 @@ def verify_document(
         "is_verified": document.is_verified
     }
 
+@router.put("/clients/{client_id}/status")
+def update_client_status(
+    client_id: str,
+    status_data: dict,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update client status"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    new_status = status_data.get("status")
+    if not new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status is required"
+        )
+    
+    # Validate status
+    valid_statuses = ["new", "verified", "traveled", "returned"]
+    if new_status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    # Update status
+    old_status = client.status
+    client.status = new_status
+    client.updated_at = datetime.utcnow()
+    client.last_modified_by = admin_user.id
+    
+    db.commit()
+    
+    return {
+        "message": f"Client status updated from '{old_status}' to '{new_status}'",
+        "client_id": client.id,
+        "old_status": old_status,
+        "new_status": new_status,
+        "updated_by": admin_user.email
+    }
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = [
