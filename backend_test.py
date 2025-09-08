@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 class JobPlacementAPITester:
-    def __init__(self, base_url="http://localhost:8001"):
+    def __init__(self, base_url="https://onboard-gulf.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.client_token = None
         self.admin_token = None
