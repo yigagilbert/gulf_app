@@ -352,6 +352,109 @@ def admin_upload_client_document(
             detail=f"Failed to upload document: {str(e)}"
         )
 
+@router.get("/clients/{client_id}/documents")
+def get_client_documents(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all documents for a specific client"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Get all documents for this client
+    documents = db.query(Document).filter(Document.client_id == client_id).all()
+    
+    return [{
+        "id": doc.id,
+        "document_type": doc.document_type,
+        "file_name": doc.file_name,
+        "file_url": doc.file_url,
+        "file_size": doc.file_size,
+        "mime_type": doc.mime_type,
+        "is_verified": doc.is_verified,
+        "verified_by": doc.verified_by,
+        "verified_at": doc.verified_at,
+        "uploaded_at": doc.uploaded_at
+    } for doc in documents]
+
+@router.delete("/clients/{client_id}/documents/{document_id}")
+def delete_client_document(
+    client_id: str,
+    document_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a specific document"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Find and delete the document
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.client_id == client_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Delete the physical file
+    try:
+        file_path = f"./uploads/client_documents/{document.file_name}"
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Warning: Could not delete physical file: {e}")
+    
+    # Delete from database
+    db.delete(document)
+    db.commit()
+    
+    return {"message": "Document deleted successfully"}
+
+@router.put("/documents/{document_id}/verify")
+def verify_document(
+    document_id: str,
+    verification_data: dict,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Verify or unverify a document"""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    is_verified = verification_data.get("is_verified", False)
+    
+    document.is_verified = is_verified
+    document.verified_by = admin_user.id if is_verified else None
+    document.verified_at = datetime.utcnow() if is_verified else None
+    
+    db.commit()
+    
+    return {
+        "message": f"Document {'verified' if is_verified else 'unverified'} successfully",
+        "document_id": document.id,
+        "is_verified": document.is_verified
+    }
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = [
