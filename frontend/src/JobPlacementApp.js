@@ -43,10 +43,17 @@ const AuthPage = () => {
 
 // Main App Routes Component
 const AppRoutes = () => {
-  const { user, loading, isAuthenticated, isAdmin, isClient } = useAuth();
+  const { user, loading, initialized, isAdmin, isClient } = useAuth();
 
-  if (loading) return <LoadingSpinner />;
-  if (!isAuthenticated) return <AuthPage />;
+  // Show loading spinner while initializing authentication
+  if (!initialized || loading) {
+    return <LoadingSpinner fullScreen />;
+  }
+
+  // If no user after initialization, show auth page
+  if (!user) {
+    return <AuthPage />;
+  }
 
   return (
     <Routes>
@@ -54,18 +61,18 @@ const AppRoutes = () => {
       {isAdmin && (
         <>
           <Route
-            path="/admin/clients/:clientId"
+            path="/admin/*"
             element={
               <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
-                <AdminClientDetailsPage />
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/admin"
+            path="/admin/clients/:clientId"
             element={
               <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
-                <AdminDashboard />
+                <AdminClientDetailsPage />
               </ProtectedRoute>
             }
           />
@@ -84,26 +91,26 @@ const AppRoutes = () => {
         />
       )}
 
-      {/* Default redirect */}
+      {/* Default redirect based on user role */}
       <Route
         path="/"
         element={
-          <Navigate
-            to={isAdmin ? "/admin" : "/dashboard"}
-            replace
+          <Navigate 
+            to={isAdmin ? "/admin" : "/dashboard"} 
+            replace 
           />
         }
       />
-
-      {/* Catch all */}
-      <Route
-        path="*"
+      
+      {/* Catch all redirect */}
+      <Route 
+        path="*" 
         element={
-          <Navigate
-            to={isAdmin ? "/admin" : "/dashboard"}
-            replace
+          <Navigate 
+            to={isAdmin ? "/admin" : "/dashboard"} 
+            replace 
           />
-        }
+        } 
       />
     </Routes>
   );
