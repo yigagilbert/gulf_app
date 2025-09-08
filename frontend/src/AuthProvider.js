@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
       console.log('User inactive for 30 minutes, logging out...');
       logout();
     }, 30 * 60 * 1000); // 30 minutes
-  }, []);
+  }, [logout]);
 
   // Set up activity tracking
   useEffect(() => {
