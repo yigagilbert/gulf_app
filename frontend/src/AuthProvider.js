@@ -1,11 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import APIService ,{ APIError } from './services/APIService';
-import { USER_ROLES, STORAGE_KEYS } from './constants';  // Updated to use STORAGE_KEYS.SESSION
-import { logger } from './utils/logger';
-import { validateUser, sanitizeUserData } from './utils/validation';
-import { secureStorage } from './utils/storage';  // Added import for consolidated storage
+import APIService, { APIError } from './services/APIService';
+import { USER_ROLES } from './constants';
 
-// Enhanced Auth Context
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
@@ -16,481 +12,364 @@ export const useAuth = () => {
   return context;
 };
 
-// Auth state management
-const AUTH_ACTIONS = {
-  SET_LOADING: 'SET_LOADING',
-  SET_USER: 'SET_USER',
-  SET_ERROR: 'SET_ERROR',
-  CLEAR_ERROR: 'CLEAR_ERROR',
-  LOGOUT: 'LOGOUT',
-  SET_INITIALIZED: 'SET_INITIALIZED'
-};
+// Enhanced Storage Manager with better persistence
+class StorageManager {
+  static TOKEN_KEY = 'gulf_consultants_token';
+  static USER_KEY = 'gulf_consultants_user';
+  static EXPIRY_KEY = 'gulf_consultants_expiry';
+  static LAST_ACTIVITY_KEY = 'gulf_consultants_last_activity';
 
-const initialAuthState = {
-  user: null,
-  loading: true,
-  error: null,
-  initialized: false,
-  sessionExpiry: null
-};
-
-const authReducer = (state, action) => {
-  switch (action.type) {
-    case AUTH_ACTIONS.SET_LOADING:
-      return { ...state, loading: action.payload };
-    
-    case AUTH_ACTIONS.SET_USER:
-      return { 
-        ...state, 
-        user: action.payload, 
-        error: null, 
-        loading: false,
-        sessionExpiry: action.expiry || null
-      };
-    
-    case AUTH_ACTIONS.SET_ERROR:
-      return { ...state, error: action.payload, loading: false };
-    
-    case AUTH_ACTIONS.CLEAR_ERROR:
-      return { ...state, error: null };
-    
-    case AUTH_ACTIONS.LOGOUT:
-      return { ...initialAuthState, loading: false, initialized: true };
-    
-    case AUTH_ACTIONS.SET_INITIALIZED:
-      return { ...state, initialized: true };
-    
-    default:
-      return state;
-  }
-};
-
-// Session management utilities (consolidated to use secureStorage; removed duplicate timestamp/version logic)
-const SESSION_CHECK_INTERVAL = 60000; // Check every minute
-
-class SessionManager {
-  static setSession(user, expiry = null) {
+  static setAuthData(token, user, expiresIn = 7 * 24 * 60 * 60 * 1000) { // 7 days default
     try {
-      const sessionData = {
-        user: sanitizeUserData(user),
-        expiry: expiry || Date.now() + (24 * 60 * 60 * 1000), // Default 24 hours
-      };
+      const expiryTime = Date.now() + expiresIn;
+      const lastActivity = Date.now();
       
-      secureStorage.setItem(STORAGE_KEYS.SESSION, sessionData);
-      return sessionData;
+      localStorage.setItem(this.TOKEN_KEY, token);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      localStorage.setItem(this.EXPIRY_KEY, expiryTime.toString());
+      localStorage.setItem(this.LAST_ACTIVITY_KEY, lastActivity.toString());
+      
+      // Also store in sessionStorage as backup
+      sessionStorage.setItem(this.TOKEN_KEY, token);
+      sessionStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      
+      return true;
     } catch (error) {
-      logger.error('Failed to save session:', error);
-      return null;
+      console.error('Failed to store auth data:', error);
+      return false;
     }
   }
 
-  static getSession() {
+  static getAuthData() {
     try {
-      const sessionData = secureStorage.getItem(STORAGE_KEYS.SESSION);
-      if (!sessionData) return null;
+      // Try localStorage first, then sessionStorage
+      let token = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
+      let userStr = localStorage.getItem(this.USER_KEY) || sessionStorage.getItem(this.USER_KEY);
+      let expiryStr = localStorage.getItem(this.EXPIRY_KEY);
+      let lastActivityStr = localStorage.getItem(this.LAST_ACTIVITY_KEY);
 
-      // Check if session is expired
-      if (sessionData.expiry && Date.now() > sessionData.expiry) {
-        this.clearSession();
+      if (!token || !userStr) {
         return null;
       }
 
-      return sessionData;
+      const user = JSON.parse(userStr);
+      const expiry = expiryStr ? parseInt(expiryStr) : null;
+      const lastActivity = lastActivityStr ? parseInt(lastActivityStr) : Date.now();
+
+      // Check if token is expired
+      if (expiry && Date.now() > expiry) {
+        this.clearAuthData();
+        return null;
+      }
+
+      // Check for inactivity (optional: 24 hours of inactivity)
+      const inactivityLimit = 24 * 60 * 60 * 1000; // 24 hours
+      if (Date.now() - lastActivity > inactivityLimit) {
+        this.clearAuthData();
+        return null;
+      }
+
+      // Update last activity
+      this.updateLastActivity();
+
+      return { token, user, expiry };
     } catch (error) {
-      logger.error('Failed to read session:', error);
-      this.clearSession();
+      console.error('Failed to get auth data:', error);
+      this.clearAuthData();
       return null;
     }
   }
 
-  static clearSession() {
+  static updateLastActivity() {
     try {
-      secureStorage.removeItem(STORAGE_KEYS.SESSION);
+      const now = Date.now().toString();
+      localStorage.setItem(this.LAST_ACTIVITY_KEY, now);
     } catch (error) {
-      logger.error('Failed to clear session:', error);
+      console.error('Failed to update last activity:', error);
     }
   }
 
-  static isSessionValid() {
-    const session = this.getSession();
-    return session && session.user && validateUser(session.user);
+  static clearAuthData() {
+    try {
+      localStorage.removeItem(this.TOKEN_KEY);
+      localStorage.removeItem(this.USER_KEY);
+      localStorage.removeItem(this.EXPIRY_KEY);
+      localStorage.removeItem(this.LAST_ACTIVITY_KEY);
+      
+      sessionStorage.removeItem(this.TOKEN_KEY);
+      sessionStorage.removeItem(this.USER_KEY);
+    } catch (error) {
+      console.error('Failed to clear auth data:', error);
+    }
+  }
+
+  static isTokenValid() {
+    const authData = this.getAuthData();
+    return authData && authData.token && authData.user;
   }
 }
 
-// Enhanced Auth Provider
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = React.useReducer(authReducer, initialAuthState);
-  const sessionCheckRef = useRef(null);
-  const refreshTokenRef = useRef(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [initialized, setInitialized] = useState(false);
+  const activityTimeoutRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
 
-  const clearError = useCallback(() => {
-    dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  }, []);
-
-  const setError = useCallback((error) => {
-    const errorMessage = error instanceof APIError ? error.message : 
-                        typeof error === 'string' ? error :
-                        'An unexpected error occurred';
+  // Track user activity
+  const updateActivity = useCallback(() => {
+    StorageManager.updateLastActivity();
     
-    dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: errorMessage });
-    logger.error('Auth error:', error);
+    // Reset activity timeout
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+    }
+    
+    // Set new timeout for 30 minutes of inactivity
+    activityTimeoutRef.current = setTimeout(() => {
+      console.log('User inactive for 30 minutes, logging out...');
+      logout();
+    }, 30 * 60 * 1000); // 30 minutes
   }, []);
 
-  const setLoading = useCallback((loading) => {
-    dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: loading });
-  }, []);
+  // Set up activity tracking
+  useEffect(() => {
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const throttledUpdateActivity = throttle(updateActivity, 60000); // Update every minute max
+    
+    events.forEach(event => {
+      document.addEventListener(event, throttledUpdateActivity, true);
+    });
 
-  const setUser = useCallback((user, expiry = null) => {
-    if (user && validateUser(user)) {
-      const sanitizedUser = sanitizeUserData(user);
-      SessionManager.setSession(sanitizedUser, expiry);
-      dispatch({ 
-        type: AUTH_ACTIONS.SET_USER, 
-        payload: sanitizedUser,
-        expiry 
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, throttledUpdateActivity, true);
       });
-      logger.info('User authenticated successfully');
-    } else {
-      logger.warn('Invalid user data provided to setUser');
-      setError('Invalid user data received');
-    }
-  }, [setError]);
-
-  const logout = useCallback(async (reason = 'user_initiated') => {
-    setLoading(true);
-    
-    try {
-      // Clear session check interval
-      if (sessionCheckRef.current) {
-        clearInterval(sessionCheckRef.current);
-        sessionCheckRef.current = null;
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
       }
+    };
+  }, [updateActivity]);
 
-      // Clear refresh token timeout
-      if (refreshTokenRef.current) {
-        clearTimeout(refreshTokenRef.current);
-        refreshTokenRef.current = null;
-      }
-
-      // Only call API logout if it's user initiated
-      if (reason === 'user_initiated') {
-        try {
-          await APIService.logout();
-        } catch (error) {
-          logger.warn('Logout API call failed:', error);
-        }
-      }
-
-      // Clear local data
-      SessionManager.clearSession();
-      APIService.clearAuthToken();  // Inferred completion from truncation
-    } finally {
-      dispatch({ type: AUTH_ACTIONS.LOGOUT });
-      setLoading(false);
-    }
-  }, [setLoading]);
-
-  const checkAuthState = useCallback(async () => {
-    const token = APIService.getAuthToken();
-    
-    if (!token) {
-      await logout('no_token');
-      return;
-    }
-
-    if (APIService.isTokenExpired()) {
-      await logout('token_expired');
-      return;
-    }
-  }, [setUser, setError, logout]);
-
-  const login = useCallback(async (credentials) => {
-    if (!credentials?.email || !credentials?.password) {
-      throw new APIError('Email and password are required', 400, null, 'validation');
-    }
-
-    setLoading(true);
-    clearError();
-
-    try {
-      const response = await APIService.login(credentials);
-      console.log('Raw API login response:', response);
-      
-      if (response?.user) {
-        console.log('User data from response:', response.user);
-        
-        setUser(response.user);
-      } else {
-        console.log('No user data in response, attempting profile check');
-      }
-      
-    } catch (error) {
-      console.error('Login error details:', error);
-      setError(error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [setLoading, clearError, setUser, setError]);
-
-  const register = useCallback(async (userData) => {
-    if (!userData?.email || !userData?.password) {
-      throw new APIError('Email and password are required', 400, null, 'validation');
-    }
-
-    setLoading(true);
-    clearError();
-
-    try {
-      const response = await APIService.register(userData);
-      logger.info('User registered successfully');
-      return response;
-    } catch (error) {
-      setError(error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [setLoading, clearError, setError]);
-
-  const refreshAuth = useCallback(async () => {
-    try {
-      await APIService.refreshToken();
-      await checkAuthState();
-    } catch (error) {
-      logger.error('Token refresh failed:', error);
-      await logout('refresh_failed');
-    }
-  }, [checkAuthState, logout]);
-
-  // Setup periodic session validation
-  const startSessionCheck = useCallback(() => {
-    if (sessionCheckRef.current) {
-      clearInterval(sessionCheckRef.current);
-    }
-
-    sessionCheckRef.current = setInterval(() => {
-      if (!SessionManager.isSessionValid() || APIService.isTokenExpired()) {
-        logout('session_expired');
-      }
-    }, SESSION_CHECK_INTERVAL);
-  }, [logout]);
-
-  // Setup automatic token refresh
-  const scheduleTokenRefresh = useCallback(() => {
-    const token = APIService.getAuthToken();
-    if (!token) return;
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const expiry = payload.exp * 1000;
-      const refreshTime = expiry - Date.now() - (5 * 60 * 1000); // Refresh 5 minutes before expiry
-
-      if (refreshTime > 0) {
-        refreshTokenRef.current = setTimeout(() => {
-          refreshAuth();
-        }, refreshTime);
-      }
-    } catch (error) {
-      logger.warn('Failed to schedule token refresh:', error);
-    }
-  }, [refreshAuth]);
-
-  // Initialize authentication state
+  // Initialize auth state from storage
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const session = SessionManager.getSession();
+        setLoading(true);
+        const authData = StorageManager.getAuthData();
         
-        if (session && session.user) {
-          setUser(session.user, session.expiry);
-          startSessionCheck();
-          scheduleTokenRefresh();
-        } else {
-          await checkAuthState();
+        if (authData && authData.token && authData.user) {
+          // Set the token in APIService
+          APIService.setAuthToken(authData.token);
+          
+          // Verify token is still valid by making a test request
+          try {
+            const response = await APIService.request('/profile/me', { method: 'GET' });
+            setUser(authData.user);
+            updateActivity(); // Start activity tracking
+            console.log('Session restored from storage');
+          } catch (apiError) {
+            console.log('Stored token invalid, clearing session');
+            StorageManager.clearAuthData();
+            APIService.clearAuthToken();
+          }
         }
       } catch (error) {
-        logger.error('Failed to initialize auth:', error);
-        setError('Failed to initialize authentication');
+        console.error('Failed to initialize auth:', error);
+        setError('Failed to restore session');
+        StorageManager.clearAuthData();
       } finally {
-        dispatch({ type: AUTH_ACTIONS.SET_INITIALIZED });
+        setLoading(false);
+        setInitialized(true);
       }
     };
 
     initializeAuth();
+  }, [updateActivity]);
 
-    const SESSION_STORAGE_KEY = STORAGE_KEYS.SESSION;
-    
-    // Listen for storage changes (multi-tab support)
-    const handleStorageChange = (e) => {
-      if (e.key === SESSION_STORAGE_KEY) {
-        if (!e.newValue) {
-          // Session cleared in another tab
-          logout('session_cleared_elsewhere');
-        } else {
-          // Session updated in another tab
-          try {
-            const newSession = JSON.parse(e.newValue);
-            if (newSession.user) {
-              setUser(newSession.user, newSession.expiry);
-            }
-          } catch (error) {
-            logger.error('Failed to parse session from storage change:', error);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      if (sessionCheckRef.current) {
-        clearInterval(sessionCheckRef.current);
-      }
-      if (refreshTokenRef.current) {
-        clearTimeout(refreshTokenRef.current);
-      }
-    };
-  }, [checkAuthState, setUser, setError, logout, startSessionCheck, scheduleTokenRefresh]);
-
-  // Start session monitoring when user logs in
+  // Set up heartbeat to keep session alive
   useEffect(() => {
-    if (state.user && state.initialized) {
-      startSessionCheck();
-      scheduleTokenRefresh();
+    if (user) {
+      // Send heartbeat every 10 minutes to keep session active
+      heartbeatIntervalRef.current = setInterval(async () => {
+        try {
+          await APIService.request('/profile/me', { method: 'GET' });
+          updateActivity();
+        } catch (error) {
+          console.log('Heartbeat failed, user may need to re-login');
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+
+      return () => {
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+      };
     }
-  }, [state.user, state.initialized, startSessionCheck, scheduleTokenRefresh]);
+  }, [user, updateActivity]);
 
-  // Enhanced context value with additional utilities
-  const contextValue = {
-    // Core auth state
-    user: state.user,
-    loading: state.loading,
-    error: state.error,
-    initialized: state.initialized,
+  const login = useCallback(async (credentials) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Auth actions
+      const response = await APIService.login(credentials);
+      
+      if (response && response.access_token && response.user) {
+        // Store auth data with extended expiry (7 days)
+        const stored = StorageManager.setAuthData(
+          response.access_token, 
+          response.user, 
+          7 * 24 * 60 * 60 * 1000 // 7 days
+        );
+        
+        if (stored) {
+          APIService.setAuthToken(response.access_token);
+          setUser(response.user);
+          updateActivity(); // Start activity tracking
+          console.log('Login successful, session stored');
+        } else {
+          throw new Error('Failed to store session data');
+        }
+      } else {
+        throw new Error('Invalid login response');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      const errorMessage = err instanceof APIError ? err.message : 
+                          typeof err === 'string' ? err : 
+                          'Login failed. Please try again.';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [updateActivity]);
+
+  const register = useCallback(async (userData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await APIService.register(userData);
+      
+      if (response && response.access_token && response.user) {
+        // Store auth data
+        const stored = StorageManager.setAuthData(
+          response.access_token, 
+          response.user, 
+          7 * 24 * 60 * 60 * 1000 // 7 days
+        );
+        
+        if (stored) {
+          APIService.setAuthToken(response.access_token);
+          setUser(response.user);
+          updateActivity();
+          console.log('Registration successful, session stored');
+        } else {
+          throw new Error('Failed to store session data');
+        }
+      } else {
+        throw new Error('Invalid registration response');
+      }
+    } catch (err) {
+      console.error('Registration error:', err);
+      const errorMessage = err instanceof APIError ? err.message : 
+                          typeof err === 'string' ? err : 
+                          'Registration failed. Please try again.';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [updateActivity]);
+
+  const logout = useCallback(() => {
+    try {
+      console.log('Logging out user...');
+      
+      // Clear timeouts and intervals
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+      
+      // Clear storage and API token
+      StorageManager.clearAuthData();
+      APIService.clearAuthToken();
+      
+      // Reset state
+      setUser(null);
+      setError(null);
+      
+      console.log('Logout completed');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      if (!user) return false;
+      
+      const response = await APIService.request('/profile/me', { method: 'GET' });
+      if (response) {
+        updateActivity();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Session refresh failed:', error);
+      logout();
+      return false;
+    }
+  }, [user, updateActivity, logout]);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Helper functions
+  const isAuthenticated = Boolean(user);
+  const isAdmin = user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.SUPER_ADMIN;
+  const isClient = user?.role === USER_ROLES.CLIENT;
+
+  const value = {
+    user,
+    loading,
+    error,
+    initialized,
+    isAuthenticated,
+    isAdmin,
+    isClient,
     login,
     register,
     logout,
-    refreshAuth,
     clearError,
-
-    // Auth status helpers
-    isAuthenticated: !!state.user,
-    isAdmin: state.user?.role === USER_ROLES.ADMIN || state.user?.role === USER_ROLES.SUPER_ADMIN,
-    isSuperAdmin: state.user?.role === USER_ROLES.SUPER_ADMIN,
-    isClient: state.user?.role === USER_ROLES.CLIENT,
-
-    // Session info
-    sessionExpiry: state.sessionExpiry,
-    isSessionValid: () => SessionManager.isSessionValid(),
-
-    // Utility functions
-    hasPermission: (requiredRoles) => {
-      if (!state.user) return false;
-      if (Array.isArray(requiredRoles)) {
-        return requiredRoles.includes(state.user.role);
-      }
-      return state.user.role === requiredRoles;
-    },
-
-    getUserDisplayName: () => {
-      if (!state.user) return 'Guest';
-      const firstName = state.user.firstName || '';
-      const lastName = state.user.lastName || '';
-      if (firstName || lastName) {
-        return `${firstName} ${lastName}`.trim();
-      }
-      return state.user.email || 'User';
-    }
+    refreshSession
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Enhanced auth hook with additional utilities
-export const useAuthState = () => {
-  const auth = useAuth();
-  
-  return {
-    ...auth,
-    
-    // Additional computed properties
-    canAccessAdmin: auth.isAdmin || auth.isSuperAdmin,
-    canManageUsers: auth.isSuperAdmin,
-    
-    // Role checking utilities
-    requireAuth: () => {
-      if (!auth.isAuthenticated) {
-        throw new Error('Authentication required');
-      }
-    },
-    
-    requireRole: (role) => {
-      auth.requireAuth();
-      if (!auth.hasPermission(role)) {
-        throw new Error('Insufficient permissions');
-      }
-    },
-    
-    // Session utilities
-    getTimeUntilExpiry: () => {
-      if (!auth.sessionExpiry) return null;
-      const timeLeft = auth.sessionExpiry - Date.now();
-      return timeLeft > 0 ? timeLeft : 0;
-    },
-    
-    isSessionExpiring: (minutesThreshold = 5) => {
-      const timeLeft = auth.getTimeUntilExpiry?.();
-      return timeLeft && timeLeft < (minutesThreshold * 60 * 1000);
+// Utility function for throttling
+function throttle(func, limit) {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
     }
-  };
-};
-
-// Higher-order component for auth protection
-export const withAuth = (WrappedComponent, allowedRoles = null) => {
-  return function AuthenticatedComponent(props) {
-    const auth = useAuth();
-
-    if (!auth.initialized) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      );
-    }
-
-    if (!auth.isAuthenticated) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
-            <p className="text-gray-600">Please log in to access this page.</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (allowedRoles && !auth.hasPermission(allowedRoles)) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-            <p className="text-gray-600">You don't have permission to access this page.</p>
-          </div>
-        </div>
-      );
-    }
-
-    return <WrappedComponent {...props} />;
-  };
-};
-
-export default AuthProvider;
+  }
+}
