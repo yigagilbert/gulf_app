@@ -221,7 +221,7 @@ class JobPlacementAPITester:
             "No Token Test",
             "GET",
             "profile/me",
-            401  # Should return 401 for missing token
+            403  # FastAPI returns 403 for missing token
         )
         
         # Test with valid token (should work)
