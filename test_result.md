@@ -180,6 +180,8 @@ agent_communication:
     message: "All backend authentication and session management functionality tested successfully. API is working correctly with 100% test pass rate. All endpoints responding properly with correct authentication and authorization."
   - agent: "testing"
     message: "Gulf Consultants admin client details functionality tested and verified working correctly. Admin client list endpoint returns 8 clients with proper structure. Individual client details endpoint successfully retrieves specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51. All data structures match frontend expectations. Fix is working as expected."
+  - agent: "testing"
+    message: "ADMIN CLIENT LIST FILTERING TEST COMPLETED: The filtering is working correctly. Admin user (admin@example.com) with role 'super_admin' is properly excluded from the client list. The /api/admin/clients endpoint correctly filters by User.role == 'client'. Found one user 'admincreated@example.com' with admin-like email but this is a legitimate client created via admin client creation endpoint with role 'client'. The filtering logic is sound and working as expected."
 ```
 
 ## Conclusion
