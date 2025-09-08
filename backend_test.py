@@ -1031,6 +1031,10 @@ def main():
     print("-" * 50)
     document_upload_success = tester.test_admin_document_upload_permissions()
     
+    print("\n🚨 FRONTEND 403 FORBIDDEN ISSUE REPRODUCTION")
+    print("-" * 50)
+    frontend_403_success = tester.test_frontend_403_issue_reproduction()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
