@@ -341,7 +341,7 @@ def admin_upload_client_document(
             "id": document.id,
             "document_type": document.document_type,
             "file_name": document.file_name,
-            "file_path": document.file_path,
+            "file_url": document.file_url,
             "message": "Document uploaded successfully"
         }
         
