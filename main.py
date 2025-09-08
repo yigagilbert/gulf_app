@@ -61,6 +61,11 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 
+# Health check endpoint
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "message": "Gulf Consultants API is running"}
+
 # Create uploads directory if it doesn't exist
 uploads_dir = Path("uploads")
 uploads_dir.mkdir(exist_ok=True)
