@@ -86,12 +86,19 @@ const AdminClientsTab = () => {
     return matchesStatus && matchesSearch;
   });
 
-  const statusOptions = ['new', 'under_review', 'verified', 'rejected'];
+  const statusOptions = ['new', 'verified', 'traveled', 'returned'];
   const statusColors = {
     new: 'bg-blue-100 text-blue-800',
-    under_review: 'bg-yellow-100 text-yellow-800',
     verified: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800'
+    traveled: 'bg-yellow-100 text-yellow-800',
+    returned: 'bg-purple-100 text-purple-800'
+  };
+
+  const statusLabels = {
+    new: 'New',
+    verified: 'Verified',
+    traveled: 'Traveled',
+    returned: 'Returned'
   };
 
   const handleDocumentUploaded = async (document) => {
