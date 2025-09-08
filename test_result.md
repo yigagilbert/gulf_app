@@ -3,11 +3,12 @@
 ## Backend Testing Results
 
 ### Test Summary
-- **Total Tests**: 10/10 ✅
+- **Total Tests**: 13/13 ✅
 - **Success Rate**: 100%
 - **Backend URL**: https://onboard-gulf.preview.emergentagent.com/api
 - **Test Date**: 2025-01-27
 - **Tester**: Testing Agent
+- **Latest Focus**: Gulf Consultants Admin Client Details Functionality
 
 ### Detailed Test Results
 
