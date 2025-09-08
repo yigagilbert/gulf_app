@@ -381,6 +381,17 @@ const AdminClientsTab = () => {
                         </button>
                         
                         <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowDeleteConfirmation(true);
+                          }}
+                          className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        
+                        <button
                           className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-50"
                           title="More Actions"
                         >
