@@ -95,12 +95,12 @@ const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('document_type', documentType);
-
+      // Remove document_type from FormData since it's passed as query parameter
+      
       const response = await APIService.request(`/admin/clients/${clientId}/documents/upload?document_type=${documentType}`, {
         method: 'POST',
         body: formData,
-        headers: {} // Let browser set content-type for FormData
+        skipContentType: true // Ensure proper FormData handling
       });
 
       setSuccess(`Document uploaded successfully for ${clientName}`);
