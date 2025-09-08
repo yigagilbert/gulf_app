@@ -12,12 +12,9 @@ class UserRoleEnum(str, Enum):
 
 class ClientStatusEnum(str, Enum):
     new = "new"
-    under_review = "under_review"
     verified = "verified"
-    in_progress = "in_progress"
-    placed = "placed"
     traveled = "traveled"
-    inactive = "inactive"
+    returned = "returned"
 
 class DocumentTypeEnum(str, Enum):
     passport = "passport"
