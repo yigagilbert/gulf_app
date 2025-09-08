@@ -34,6 +34,7 @@ app.add_middleware(
     allow_origins=[
         "https://gulf-app.vercel.app",
         "https://onboard-gulf.preview.emergentagent.com",  # Production frontend URL
+        "https://mobile-recruit.preview.emergentagent.com",  # User's current frontend URL
         "http://localhost:3000",      # React dev server
         "http://127.0.0.1:3000",     # Alternative localhost
         "https://localhost:3000",     # HTTPS version
