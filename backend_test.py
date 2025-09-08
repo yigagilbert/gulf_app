@@ -894,6 +894,10 @@ def main():
     print("-" * 50)
     gulf_admin_success = tester.test_gulf_consultants_admin_client_details()
     
+    print("\n📄 ADMIN DOCUMENT UPLOAD PERMISSIONS TESTS")
+    print("-" * 50)
+    document_upload_success = tester.test_admin_document_upload_permissions()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
