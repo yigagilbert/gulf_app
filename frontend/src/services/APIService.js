@@ -421,6 +421,17 @@ class APIServiceClass {
     });
   }
 
+  async getClientProfile(clientId) {
+    return this.request(`/admin/clients/${clientId}`);
+  }
+
+  async updateClientProfile(clientId, profileData) {
+    return this.request(`/admin/clients/${clientId}/onboard`, {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+  }
+
   async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
