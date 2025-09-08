@@ -1555,6 +1555,10 @@ def main():
     print("-" * 60)
     status_management_success = tester.test_gulf_consultants_status_management()
     
+    print("\n🗑️  GULF CONSULTANTS CLIENT DELETION TESTS")
+    print("-" * 60)
+    client_deletion_success = tester.test_gulf_consultants_client_deletion()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
