@@ -182,32 +182,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, [updateActivity]);
 
-  const logout = useCallback(() => {
-    try {
-      console.log('Logging out user...');
-      
-      // Clear timeouts and intervals
-      if (activityTimeoutRef.current) {
-        clearTimeout(activityTimeoutRef.current);
-      }
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
-      
-      // Clear storage and API token
-      StorageManager.clearAuthData();
-      APIService.clearAuthToken();
-      
-      // Reset state
-      setUser(null);
-      setError(null);
-      
-      console.log('Logout completed');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  }, []);
-
   // Initialize auth state from storage - ONLY RUN ONCE
   useEffect(() => {
     const initializeAuth = async () => {
