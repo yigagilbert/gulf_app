@@ -56,15 +56,18 @@ class StorageManager {
       const expiry = expiryStr ? parseInt(expiryStr) : null;
       const lastActivity = lastActivityStr ? parseInt(lastActivityStr) : Date.now();
 
-      // Check if token is expired
-      if (expiry && Date.now() > expiry) {
+      // Check if token is expired (with 1 hour grace period for clock skew)
+      const gracePeriod = 60 * 60 * 1000; // 1 hour
+      if (expiry && Date.now() > (expiry + gracePeriod)) {
+        console.log('Token expired beyond grace period, clearing');
         this.clearAuthData();
         return null;
       }
 
-      // Check for inactivity (optional: 24 hours of inactivity)
-      const inactivityLimit = 24 * 60 * 60 * 1000; // 24 hours
+      // Check for inactivity (48 hours instead of 24 for more tolerance)
+      const inactivityLimit = 48 * 60 * 60 * 1000; // 48 hours
       if (Date.now() - lastActivity > inactivityLimit) {
+        console.log('User inactive beyond limit, clearing session');
         this.clearAuthData();
         return null;
       }
@@ -75,7 +78,7 @@ class StorageManager {
       return { token, user, expiry };
     } catch (error) {
       console.error('Failed to get auth data:', error);
-      this.clearAuthData();
+      // Don't clear auth data on parsing errors - might be temporary
       return null;
     }
   }
