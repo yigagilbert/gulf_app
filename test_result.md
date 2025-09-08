@@ -186,6 +186,18 @@ backend:
         agent: "testing"
         comment: "Admin client list filtering tested and verified working correctly. The /api/admin/clients endpoint properly filters by User.role == 'client' and excludes admin users. Confirmed that admin@example.com (role: super_admin) is correctly excluded from client list. Found 8 legitimate clients returned. One user 'admincreated@example.com' appears in list but is a legitimate client with role 'client' created via admin client creation endpoint. Filtering logic is sound and working as expected."
 
+  - task: "Admin Document Upload Permissions"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin document upload functionality tested extensively and working correctly. The /api/admin/clients/{client_id}/documents/upload endpoint is functioning properly with admin authentication. Tested with specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51 mentioned in review request. All document upload requests successful (200 OK). The get_admin_user dependency is working correctly. JWT token validation properly rejects invalid/missing tokens. Multiple consecutive requests all successful - no intermittent 403 Forbidden issues detected. Tested with different document types (passport, cv, certificate, other) - all working. The 403 Forbidden issue mentioned in the review request could not be reproduced and appears to be either already resolved, environment-specific, or related to frontend token handling rather than backend permissions."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
