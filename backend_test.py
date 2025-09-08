@@ -443,6 +443,111 @@ class JobPlacementAPITester:
 
         return success
 
+    def test_gulf_consultants_admin_client_details(self):
+        """Test Gulf Consultants admin client details functionality specifically"""
+        print("\n🏢 GULF CONSULTANTS ADMIN CLIENT DETAILS TESTS")
+        print("-" * 50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for Gulf Consultants admin tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Test 1: Admin client list endpoint
+        print("🔍 Testing admin client list endpoint...")
+        success1, clients_list = self.run_test(
+            "Admin Client List",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success1:
+            print("❌ Admin client list endpoint failed")
+            return False
+            
+        # Validate client list structure
+        if not isinstance(clients_list, list):
+            print(f"❌ Expected list, got {type(clients_list)}")
+            return False
+            
+        print(f"✅ Client list endpoint working - Found {len(clients_list)} clients")
+        
+        # Test 2: Individual client details with specific ID from review
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        print(f"🔍 Testing specific client details for ID: {specific_client_id}")
+        
+        success2, specific_client = self.run_test(
+            f"Specific Client Details",
+            "GET",
+            f"admin/clients/{specific_client_id}",
+            200,  # Will be 404 if client doesn't exist
+            headers=headers
+        )
+        
+        # Test 3: If specific client doesn't exist, test with available client
+        test_client_id = None
+        test_client_details = None
+        
+        if success2:
+            test_client_id = specific_client_id
+            test_client_details = specific_client
+            print(f"✅ Specific client {specific_client_id} found and accessible")
+        elif len(clients_list) > 0:
+            # Use first available client for testing
+            test_client_id = clients_list[0]['id']
+            print(f"ℹ️  Specific client not found, testing with available client: {test_client_id}")
+            
+            success2, test_client_details = self.run_test(
+                f"Available Client Details",
+                "GET",
+                f"admin/clients/{test_client_id}",
+                200,
+                headers=headers
+            )
+        
+        if not success2:
+            print("❌ Could not retrieve any client details")
+            return False
+            
+        # Test 4: Validate client data structure for frontend consumption
+        print("🔍 Validating client data structure for frontend...")
+        
+        # Check client list item structure
+        if len(clients_list) > 0:
+            list_item = clients_list[0]
+            required_list_fields = ['id', 'user_email', 'first_name', 'last_name', 'status', 'created_at']
+            missing_list_fields = [field for field in required_list_fields if field not in list_item]
+            
+            if missing_list_fields:
+                print(f"⚠️  Client list missing fields: {missing_list_fields}")
+            else:
+                print("✅ Client list structure is correct for frontend")
+                
+        # Check client details structure
+        if test_client_details:
+            required_detail_fields = [
+                'id', 'user_id', 'first_name', 'last_name', 'status', 
+                'created_at', 'updated_at'
+            ]
+            missing_detail_fields = [field for field in required_detail_fields if field not in test_client_details]
+            
+            if missing_detail_fields:
+                print(f"⚠️  Client details missing fields: {missing_detail_fields}")
+            else:
+                print("✅ Client details structure is correct for frontend")
+                
+            # Print sample client data for verification
+            print(f"📋 Sample client data:")
+            print(f"   ID: {test_client_details.get('id', 'N/A')}")
+            print(f"   Name: {test_client_details.get('first_name', '')} {test_client_details.get('last_name', '')}")
+            print(f"   Status: {test_client_details.get('status', 'N/A')}")
+            print(f"   Created: {test_client_details.get('created_at', 'N/A')}")
+        
+        return success1 and success2
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://onboard-gulf.preview.emergentagent.com/api")
