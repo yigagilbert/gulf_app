@@ -8,6 +8,7 @@ import {
 import APIService from '../services/APIService';
 import AdminClientCreation from './AdminClientCreation';
 import AdminDocumentUpload from './AdminDocumentUpload';
+import AdminClientDocuments from './AdminClientDocuments';
 import PDFViewer from './PDFViewer';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
