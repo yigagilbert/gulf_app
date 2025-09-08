@@ -182,7 +182,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Initialize auth state from storage
+  // Initialize auth state from storage - ONLY RUN ONCE
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -190,59 +190,48 @@ export const AuthProvider = ({ children }) => {
         const authData = StorageManager.getAuthData();
         
         if (authData && authData.token && authData.user) {
+          console.log('Found stored auth data, restoring session...');
+          
           // Set the token in APIService
           APIService.setAuthToken(authData.token);
           
-          // Try to verify token is still valid, but don't fail the session if verification fails
-          try {
-            const response = await APIService.request('/profile/me', { method: 'GET' });
-            // If verification succeeds, use the fresh user data
-            setUser(response || authData.user);
-            updateActivity();
-            console.log('Session restored and verified from storage');
-          } catch (apiError) {
-            console.log('Token verification failed, checking error type:', apiError);
-            
-            // Only clear session for explicit authentication errors
-            if (apiError.isAuthError && (apiError.status === 401 || apiError.status === 403)) {
-              console.log('Authentication expired, clearing session');
-              StorageManager.clearAuthData();
-              APIService.clearAuthToken();
-            } else {
-              // For network errors or server issues, trust the stored token
-              console.log('Network/server error during verification, trusting stored session');
-              setUser(authData.user);
-              updateActivity();
+          // For initial load, trust the stored session and set user immediately
+          setUser(authData.user);
+          updateActivity();
+          console.log('Session restored from storage');
+          
+          // Verify token in background without affecting current session
+          setTimeout(async () => {
+            try {
+              await APIService.request('/profile/me', { method: 'GET' });
+              console.log('Background token verification successful');
+            } catch (apiError) {
+              console.log('Background token verification failed:', apiError);
               
-              // Try to refresh the session in the background
-              setTimeout(async () => {
-                try {
-                  await APIService.request('/profile/me', { method: 'GET' });
-                  console.log('Background session refresh successful');
-                } catch (retryError) {
-                  console.log('Background session refresh failed:', retryError);
-                  // If it's still an auth error after retry, then clear session
-                  if (retryError.isAuthError && (retryError.status === 401 || retryError.status === 403)) {
-                    console.log('Session definitely expired, logging out');
-                    logout();
-                  }
-                }
-              }, 5000); // Retry after 5 seconds
+              // Only clear session for explicit auth errors
+              if (apiError.isAuthError && (apiError.status === 401 || apiError.status === 403)) {
+                console.log('Token expired, logging out...');
+                logout();
+              }
             }
-          }
+          }, 2000);
+        } else {
+          console.log('No stored auth data found');
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
         setError('Failed to restore session');
-        // Don't clear storage here - only clear on explicit auth errors
       } finally {
         setLoading(false);
         setInitialized(true);
       }
     };
 
-    initializeAuth();
-  }, [updateActivity, logout]);
+    // Only run once on mount
+    if (!initialized) {
+      initializeAuth();
+    }
+  }, [initialized]); // Only depend on initialized flag
 
   // Set up heartbeat to keep session alive
   useEffect(() => {
