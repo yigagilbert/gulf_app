@@ -555,22 +555,16 @@ def delete_client(
                 print(f"Warning: Could not delete profile photo: {e}")
         
         # Delete any chat messages
-        from .models import ChatMessage
         chat_messages = db.query(ChatMessage).filter(
             (ChatMessage.sender_id == user.id) | (ChatMessage.receiver_id == user.id)
         ).all()
         for message in chat_messages:
             db.delete(message)
         
-        # Delete any job applications (if that model exists)
-        try:
-            from .models import JobApplication
-            applications = db.query(JobApplication).filter(JobApplication.client_id == client_id).all()
-            for app in applications:
-                db.delete(app)
-        except ImportError:
-            # JobApplication model doesn't exist, skip
-            pass
+        # Delete any job applications
+        applications = db.query(JobApplication).filter(JobApplication.client_id == client_id).all()
+        for app in applications:
+            db.delete(app)
         
         # Delete the client profile
         db.delete(client)
