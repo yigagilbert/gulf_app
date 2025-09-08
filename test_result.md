@@ -237,7 +237,7 @@ agent_communication:
 
 ## Conclusion
 
-The Gulf Consultants job placement backend API is **fully functional** and working correctly. All critical authentication and session management features are operational, including the newly tested admin client list filtering functionality:
+The Gulf Consultants job placement backend API is **fully functional** and working correctly. All critical authentication and session management features are operational, including the newly tested Gulf Consultants client status management system:
 
 ✅ **Authentication System**: Registration and login endpoints working  
 ✅ **Session Management**: JWT tokens properly generated and validated  
@@ -250,12 +250,22 @@ The Gulf Consultants job placement backend API is **fully functional** and worki
 ✅ **Specific Client Access**: Successfully tested with client ID a434d812-1c6a-4e3d-945a-8153c7088c51  
 ✅ **Admin Client List Filtering**: Role-based filtering working correctly - admin users excluded from client list  
 ✅ **Admin Exclusion**: Confirmed admin@example.com properly excluded from client list  
-✅ **Client Count Accuracy**: Returns 8 legitimate clients, excluding admin users  
+✅ **Client Count Accuracy**: Returns 14 legitimate clients, excluding admin users  
 ✅ **Admin Document Upload Permissions**: Admin document upload functionality working correctly - 403 Forbidden issue not reproducible  
 ✅ **Document Upload Authentication**: get_admin_user dependency working correctly with proper JWT validation  
 ✅ **Document Upload Security**: Invalid/missing tokens properly rejected  
 ✅ **Specific Client Testing**: Successfully tested with client ID a434d812-1c6a-4e3d-945a-8153c7088c51  
+✅ **Gulf Consultants Status Management**: Complete status workflow system working correctly  
+✅ **Status Enum Support**: All four status values supported: new, verified, traveled, returned  
+✅ **Status Update Endpoint**: `/api/admin/clients/{client_id}/status` functioning correctly  
+✅ **Status Validation**: Proper validation and error handling for invalid statuses  
+✅ **Admin Permissions**: Status updates work with proper admin authentication  
+✅ **Status Audit Trail**: Updates include proper audit information (updated_by, timestamps)  
+✅ **Client List Status Display**: Updated statuses correctly reflected in client list  
+✅ **Schema Fix**: Resolved critical schema mismatch causing 500 errors with 'returned' status  
 
-**No critical issues found.** The backend is ready for production use and the admin client list filtering is working as expected. The filtering correctly uses role-based logic (User.role == 'client') rather than email pattern matching, ensuring proper security and data integrity.
+**No critical issues found.** The backend is ready for production use and the Gulf Consultants client status management system is working as expected. The status workflow correctly supports the complete client journey from 'new' through 'verified', 'traveled', and 'returned' statuses with proper validation, admin permissions, and audit trail functionality.
 
 **Admin Document Upload Issue Resolution:** The 403 Forbidden issue mentioned in the review request could not be reproduced during extensive testing. All admin document upload requests are successful. The issue appears to be either already resolved, environment-specific, or related to frontend token handling rather than backend permissions. The backend API is functioning correctly for admin document uploads.
+
+**Status Management System Resolution:** Fixed a critical schema mismatch between models.py and schemas.py that was causing 500 Internal Server Error when using the 'returned' status. The ClientStatusEnum in schemas.py now correctly matches the ClientStatus enum in models.py, supporting all four required status values. The complete status workflow is now fully functional.
