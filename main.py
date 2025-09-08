@@ -53,13 +53,13 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(profile_router)
-app.include_router(documents_router)
-app.include_router(admin_router)
-app.include_router(jobs_router)
-app.include_router(chat_router)
+# Include routers with /api prefix for Kubernetes ingress
+app.include_router(auth_router, prefix="/api")
+app.include_router(profile_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(jobs_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 # Create uploads directory if it doesn't exist
 uploads_dir = Path("uploads")
