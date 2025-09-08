@@ -21,6 +21,13 @@ const API_CONFIG = {
   QUEUE_LIMIT: 10
 };
 
+// Debug logging for environment configuration
+console.log('🔧 API Configuration:', {
+  BASE_URL: API_CONFIG.BASE_URL,
+  ENV_VAR: process.env.REACT_APP_BACKEND_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+
 /**
  * Enhanced API Error class with better categorization
  */
