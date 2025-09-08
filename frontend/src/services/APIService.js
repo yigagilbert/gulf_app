@@ -21,7 +21,6 @@ const API_CONFIG = {
   QUEUE_LIMIT: 10
 };
 
-
 /**
  * Enhanced API Error class with better categorization
  */
@@ -50,27 +49,35 @@ class APIError extends Error {
   get isServerError() {
     return this.status >= 500;
   }
+
+  get isRetryable() {
+    return this.isNetworkError || this.isServerError || this.status === 429;
+  }
 }
 
 /**
- * Request queue manager for handling concurrent requests
+ * Request Queue Manager for handling concurrent requests
  */
 class RequestQueue {
-  constructor(maxConcurrent = 5) {
-    this.queue = [];
+  constructor(limit = API_CONFIG.QUEUE_LIMIT) {
+    this.limit = limit;
     this.running = [];
-    this.maxConcurrent = maxConcurrent;
+    this.queue = [];
   }
 
   async add(requestFn) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ requestFn, resolve, reject });
+      this.queue.push({
+        requestFn,
+        resolve,
+        reject
+      });
       this.process();
     });
   }
 
   async process() {
-    if (this.running.length >= this.maxConcurrent || this.queue.length === 0) {
+    if (this.running.length >= this.limit || this.queue.length === 0) {
       return;
     }
 
@@ -84,590 +91,373 @@ class RequestQueue {
     } catch (error) {
       reject(error);
     } finally {
-      this.running = this.running.filter(item => item !== runningItem);
-      this.process(); // Process next item
+      const index = this.running.indexOf(runningItem);
+      if (index > -1) {
+        this.running.splice(index, 1);
+      }
+      this.process(); // Process next item in queue
     }
   }
 }
 
 /**
- * Professional API Service Class
+ * Enhanced API Service with robust session management
  */
-class APIService {
-  static requestQueue = new RequestQueue();
-  static authListeners = new Set();
-  static requestInterceptors = [];
-  static responseInterceptors = [];
-
-  /**
-   * Add authentication state listener
-   */
-  static onAuthChange(callback) {
-    this.authListeners.add(callback);
-    return () => this.authListeners.delete(callback);
+class APIServiceClass {
+  constructor() {
+    this.requestQueue = new RequestQueue();
+    this.authToken = null;
+    this.baseURL = API_CONFIG.BASE_URL;
+    this.requestId = 0;
   }
 
   /**
-   * Notify auth listeners of authentication changes
+   * Set authentication token
    */
-  static notifyAuthChange(isAuthenticated, user = null) {
-    this.authListeners.forEach(callback => {
-      try {
-        callback(isAuthenticated, user);
-      } catch (error) {
-        console.error('Auth listener error:', error);
-      }
-    });
+  setAuthToken(token) {
+    this.authToken = token;
   }
 
   /**
-   * Enhanced token management with encryption-like obfuscation (consolidated to secureStorage)
+   * Clear authentication token
    */
-  static getAuthToken() {
-    try {
-      const token = secureStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      if (!token) return null;
-      
-      // Simple validation
-      if (token.split('.').length !== 3) {
-        this.clearAuthToken();
-        return null;
-      }
-      
-      return token;
-    } catch (error) {
-      console.warn('Failed to retrieve token:', error);
-      return null;
-    }
-  }
-
-  static setAuthToken(token) {
-    try {
-      if (token) {
-        secureStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-      } else {
-        this.clearAuthToken();
-      }
-    } catch (error) {
-      console.error('Failed to store token:', error);
-      throw new APIError('Failed to store authentication token', 0, null, 'storage');
-    }
-  }
-
-  static clearAuthToken() {
-    try {
-      secureStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      secureStorage.removeItem('user_profile');  // Removed auth_timestamp as duplicate with secureStorage
-      this.notifyAuthChange(false);
-    } catch (error) {
-      console.error('Failed to clear token:', error);
-    }
+  clearAuthToken() {
+    this.authToken = null;
   }
 
   /**
-   * Check if token is expired (client-side check)
+   * Get current auth token
    */
-  static isTokenExpired() {
-    const token = this.getAuthToken();
-    if (!token) return true;
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const expiry = payload.exp * 1000; // Convert to milliseconds
-      return Date.now() > expiry;
-    } catch {
-      return true;
-    }
+  getAuthToken() {
+    return this.authToken;
   }
 
   /**
-   * Enhanced header building with security considerations
+   * Create request headers with authentication
    */
-  static buildHeaders(customHeaders = {}, includeAuth = true, isFormData = false) {
+  createHeaders(customHeaders = {}) {
     const headers = {
+      'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
       ...customHeaders
     };
 
-    // Don't set Content-Type for FormData - browser will set it with boundary
-    if (!isFormData) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    if (includeAuth) {
-      const token = this.getAuthToken();
-      if (token && !this.isTokenExpired()) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
     }
 
     return headers;
   }
 
   /**
-   * Enhanced response handler with better error categorization
+   * Handle response with comprehensive error handling
    */
-  static async handleResponse(response, originalUrl) {
+  async handleResponse(response, requestId) {
     const contentType = response.headers.get('content-type');
     
     try {
-      let data;
-      
-      if (contentType?.includes('application/json')) {
-        data = await response.json();
-      } else if (contentType?.includes('text')) {
-        data = await response.text();
-      } else {
-        data = await response.blob();
-      }
-
       if (!response.ok) {
-        const errorType = response.status >= 500 ? 'server' :
-                         response.status === 401 || response.status === 403 ? 'auth' :
-                         response.status === 400 || response.status === 422 ? 'validation' :
-                         response.status === 404 ? 'not_found' : 
-                         'generic';
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errorData = null;
         
-        throw new APIError(
-          data?.message || data?.error || 'API request failed',
-          response.status,
-          data,
-          errorType
-        );
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.warn(`[${requestId}] Failed to parse error response as JSON:`, parseError);
+          }
+        }
+
+        // Determine error type
+        let errorType = 'generic';
+        if (response.status === 0 || !response.status) {
+          errorType = 'network';
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (response.status === 401) {
+          errorType = 'auth';
+          errorMessage = 'Authentication required. Please log in again.';
+        } else if (response.status === 403) {
+          errorType = 'auth';
+          errorMessage = 'Access denied. You do not have permission to perform this action.';
+        } else if (response.status === 404) {
+          errorMessage = 'Resource not found.';
+        } else if (response.status >= 500) {
+          errorType = 'server';
+          errorMessage = 'Server error. Please try again later.';
+        }
+
+        throw new APIError(errorMessage, response.status, errorData, errorType);
       }
 
-      return data;
+      // Handle successful response
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
     } catch (error) {
-      if (error instanceof APIError) throw error;
-      throw new APIError(
-        'Failed to process response',
-        response.status || 0,
-        null,
-        'network'
-      );
+      if (error instanceof APIError) {
+        throw error;
+      }
+      
+      // Handle parsing errors
+      console.error(`[${requestId}] Response parsing error:`, error);
+      throw new APIError('Failed to process server response', response.status, null, 'parse');
     }
   }
 
   /**
-   * Enhanced request method with retry logic and queuing
+   * Make HTTP request with retry logic and error handling
    */
-  static async request(endpoint, options = {}) {
-    const {
-      skipQueue = false,
-      maxRetries = API_CONFIG.MAX_RETRIES,
-      retryCondition = (error) => error.isNetworkError || error.isServerError,
-      ...fetchOptions
-    } = options;
-
-    const requestFn = () => this._makeRequest(endpoint, fetchOptions, maxRetries, retryCondition);
-
-    if (skipQueue) {
-      return requestFn();
-    }
-
-    return this.requestQueue.add(requestFn);
-  }
-
-  /**
-   * Internal request method with retry logic
-   */
-  static async _makeRequest(endpoint, options, maxRetries, retryCondition) {
-    const url = `${API_CONFIG.BASE_URL}${endpoint}`;
-    const isFormData = options.body instanceof FormData;
+  async _makeRequest(endpoint, options = {}) {
+    const requestId = ++this.requestId;
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
     
-    const defaultOptions = {
+    console.log(`[${requestId}] Making request to:`, url);
+
+    const requestOptions = {
       method: 'GET',
-      headers: this.buildHeaders(options.headers, options.includeAuth !== false, isFormData),
-      credentials: 'include',
+      headers: this.createHeaders(options.headers),
       ...options
     };
 
+    // Don't set Content-Type for FormData
+    if (options.body instanceof FormData) {
+      delete requestOptions.headers['Content-Type'];
+    }
+
     let lastError;
     
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
-
+    for (let attempt = 0; attempt <= API_CONFIG.MAX_RETRIES; attempt++) {
       try {
-        // Apply request interceptors
-        let finalOptions = defaultOptions;
-        for (const interceptor of this.requestInterceptors) {
-          finalOptions = await interceptor(finalOptions);
-        }
-
+        console.log(`[${requestId}] Attempt ${attempt + 1}/${API_CONFIG.MAX_RETRIES + 1}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+        
         const response = await fetch(url, {
-          ...finalOptions,
+          ...requestOptions,
           signal: controller.signal
         });
-
+        
         clearTimeout(timeoutId);
-
-        // Apply response interceptors
-        let finalResponse = response;
-        for (const interceptor of this.responseInterceptors) {
-          finalResponse = await interceptor(finalResponse);
-        }
-
-        return await this.handleResponse(finalResponse, url);
+        
+        const result = await this.handleResponse(response, requestId);
+        console.log(`[${requestId}] Request successful`);
+        return result;
+        
       } catch (error) {
-        clearTimeout(timeoutId);
+        lastError = error;
+        console.error(`[${requestId}] Attempt ${attempt + 1} failed:`, error.message);
         
-        if (error.name === 'AbortError') {
-          lastError = new APIError('Request timeout', 408, null, 'timeout');
-        } else if (error instanceof APIError) {
-          lastError = error;
-        } else {
-          lastError = new APIError(
-            'Network error. Please check your connection.',
-            0,
-            null,
-            'network'
-          );
-        }
-
-        // Check if we should retry
-        const shouldRetry = attempt < maxRetries && retryCondition(lastError);
-        
-        if (!shouldRetry) {
+        // Don't retry auth errors or validation errors
+        if (error.isAuthError || error.isValidationError || !error.isRetryable) {
           break;
         }
-
-        // Wait before retry with exponential backoff
-        if (attempt < maxRetries) {
+        
+        // Don't retry on the last attempt
+        if (attempt < API_CONFIG.MAX_RETRIES) {
           const delay = API_CONFIG.RETRY_DELAYS[attempt] || API_CONFIG.RETRY_DELAYS[API_CONFIG.RETRY_DELAYS.length - 1];
+          console.log(`[${requestId}] Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
-
-    throw lastError;
+    
+    console.error(`[${requestId}] All attempts failed`);
+    throw lastError || new APIError('Request failed after all retry attempts', 0, null, 'network');
   }
 
   /**
-   * Enhanced file upload with progress and validation
+   * Queue request for processing
    */
-  static async uploadFile(endpoint, file, additionalData = {}, onProgress = null) {
-    // Validate file
-    if (!file) {
-      throw new APIError('No file provided', 400, null, 'validation');
-    }
+  async request(endpoint, options = {}) {
+    return this.requestQueue.add(() => this._makeRequest(endpoint, options));
+  }
 
-    if (file.size > API_CONFIG.MAX_FILE_SIZE) {
-      throw new APIError(
-        `File size exceeds limit (${API_CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`,
-        400,
-        null,
-        'validation'
-      );
-    }
-
-    if (!API_CONFIG.ALLOWED_FILE_TYPES.includes(file.type)) {
-      throw new APIError(
-        `File type not allowed. Allowed: ${API_CONFIG.ALLOWED_FILE_TYPES.join(', ')}`,
-        400,
-        null,
-        'validation'
-      );
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Add additional data
-    Object.entries(additionalData).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        formData.append(key, value.toString());
-      }
-    });
-
-    // Use XMLHttpRequest for progress tracking
-    if (onProgress && typeof onProgress === 'function') {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const url = `${API_CONFIG.BASE_URL}${endpoint}`;
-        
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            onProgress(progress);
-          }
-        });
-
-        xhr.addEventListener('load', async () => {
-          try {
-            const mockResponse = {
-              ok: xhr.status >= 200 && xhr.status < 300,
-              status: xhr.status,
-              headers: {
-                get: (name) => xhr.getResponseHeader(name)
-              },
-              json: () => Promise.resolve(JSON.parse(xhr.responseText)),
-              text: () => Promise.resolve(xhr.responseText)
-            };
-            
-            const result = await this.handleResponse(mockResponse, url);
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          reject(new APIError('Upload failed', 0, null, 'network'));
-        });
-
-        xhr.addEventListener('timeout', () => {
-          reject(new APIError('Upload timeout', 408, null, 'timeout'));
-        });
-
-        xhr.open('POST', url);
-        
-        // Set headers
-        const token = this.getAuthToken();
-        if (token) {
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        }
-        
-        xhr.timeout = API_CONFIG.TIMEOUT;
-        xhr.send(formData);
-      });
-    } else {
-      // Use regular fetch for simple uploads
-      return this.request(endpoint, {
+  /**
+   * Authentication endpoints
+   */
+  async login(credentials) {
+    try {
+      const response = await this.request('/auth/login', {
         method: 'POST',
-        body: formData,
-        skipQueue: true // File uploads skip queue due to size
+        body: JSON.stringify(credentials)
       });
-    }
-  }
-
-  // ============ AUTHENTICATION ENDPOINTS ============
-  
-  static async register(userData) {
-    const response = await this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      includeAuth: false
-    });
-    
-    return response;
-  }
-
-  static async login(credentials) {
-    const response = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-      includeAuth: false
-    });
-
-    if (response.access_token) {
-      this.setAuthToken(response.access_token);
-      this.notifyAuthChange(true, response.user);
-    }
-
-    return response;
-  }
-
-  static async logout() {
-    try {
-      await this.request('/auth/logout', {
-        method: 'POST'
-      });
-    } catch (error) {
-      // Continue with local logout even if API call fails
-      console.warn('Logout API call failed:', error);
-    } finally {
-      this.clearAuthToken();
-    }
-  }
-
-  static async refreshToken() {
-    try {
-      const response = await this.request('/auth/refresh', {
-        method: 'POST'
-      });
-
-      if (response.access_token) {
+      
+      if (response && response.access_token) {
         this.setAuthToken(response.access_token);
-        return response;
       }
+      
+      return response;
     } catch (error) {
-      this.clearAuthToken();
+      console.error('Login error:', error);
       throw error;
     }
   }
 
-  // ============ PROFILE ENDPOINTS ============
+  async register(userData) {
+    try {
+      const response = await this.request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      
+      if (response && response.access_token) {
+        this.setAuthToken(response.access_token);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  }
 
-  static async getProfile() {
+  /**
+   * Profile endpoints
+   */
+  async getProfile() {
     return this.request('/profile/me');
   }
 
-  static async updateProfile(profileData) {
+  async updateProfile(profileData) {
     return this.request('/profile/me', {
       method: 'PUT',
       body: JSON.stringify(profileData)
     });
   }
 
-  // ============ DOCUMENT ENDPOINTS ============
-
-  static async uploadDocument(file, documentType, onProgress = null) {
-    return this.uploadFile('/documents/upload', file, { 
-      document_type: documentType 
-    }, onProgress);
+  async uploadProfilePhoto(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request('/profile/me/photo', {
+      method: 'POST',
+      body: formData
+    });
   }
 
-  static async getDocuments() {
+  async getOnboardingStatus() {
+    return this.request('/profile/me/onboarding-status');
+  }
+
+  /**
+   * Document endpoints
+   */
+  async getDocuments() {
     return this.request('/documents/me');
   }
 
-  static async downloadDocument(documentId, filename = null) {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/documents/download/${documentId}`, {
-      headers: this.buildHeaders()
-    });
-
-    if (!response.ok) {
-      throw new APIError('Download failed', response.status);
-    }
-
-    const blob = await response.blob();
+  async uploadDocument(file, documentType) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', documentType);
     
-    if (filename) {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    }
-
-    return blob;
+    return this.request('/documents/upload', {
+      method: 'POST',
+      body: formData
+    });
   }
 
-  // ============ JOB ENDPOINTS ============
-
-  static async getJobs(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const endpoint = queryString ? `/jobs?${queryString}` : '/jobs';
-    return this.request(endpoint);
+  /**
+   * Job endpoints
+   */
+  async getJobs(page = 1, limit = 20) {
+    return this.request(`/jobs?page=${page}&limit=${limit}`);
   }
 
-  static async getJob(jobId) {
+  async getJob(jobId) {
     return this.request(`/jobs/${jobId}`);
   }
 
-  static async createJob(jobData) {
-    return this.request('/jobs', {
-      method: 'POST',
-      body: JSON.stringify(jobData)
-    });
-  }
-
-  static async updateJob(jobId, jobData) {
-    return this.request(`/jobs/${jobId}`, {
-      method: 'PUT',
-      body: JSON.stringify(jobData)
-    });
-  }
-
-  static async deleteJob(jobId) {
-    return this.request(`/jobs/${jobId}`, {
-      method: 'DELETE'
-    });
-  }
-
-  static async applyForJob(jobId) {
+  async applyForJob(jobId, applicationData = {}) {
     return this.request(`/jobs/${jobId}/apply`, {
-      method: 'POST'
-    });
-  }
-
-  static async getMyApplications() {
-    return this.request('/jobs/applications');
-  }
-
-  static async getAllApplications() {
-    return this.request('/jobs/admin/applications');
-  }
-
-  // ============ ADMIN ENDPOINTS ============
-
-  static async getClients(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const endpoint = queryString ? `/admin/clients?${queryString}` : '/admin/clients';
-    return this.request(endpoint);
-  }
-
-  static async getClientProfile(clientId) {
-    return this.request(`/admin/clients/${clientId}`);
-  }
-
-  static async updateClientProfile(clientId, profileData) {
-    return this.request(`/admin/clients/${clientId}`, {
-      method: 'PUT',
-      body: JSON.stringify(profileData)
-    });
-  }
-
-  static async verifyClient(clientId, verificationNotes = null) {
-    const body = verificationNotes ? 
-      JSON.stringify({ verification_notes: verificationNotes }) : 
-      '{}';
-    
-    return this.request(`/admin/clients/${clientId}/verify`, {
-      method: 'PUT',
-      body
-    });
-  }
-
-  static async getClientDocuments(clientId) {
-    return this.request(`/admin/clients/${clientId}/documents`);
-  }
-
-  static async uploadProfilePhoto(clientId, formData) {
-    return this.request(`/admin/clients/${clientId}/photo`, {
       method: 'POST',
-      body: formData,
-      headers: { 'Content-Type': 'multipart/form-data' }
+      body: JSON.stringify(applicationData)
     });
   }
 
-  // ============ CHAT ENDPOINTS ============
-  static async sendChatMessage(receiverId, content) {
+  async getMyApplications() {
+    return this.request('/applications/me');
+  }
+
+  /**
+   * Chat endpoints
+   */
+  async sendChatMessage(receiverId, content) {
     return this.request('/chat/send', {
       method: 'POST',
-      body: JSON.stringify({ receiver_id: receiverId, content })
+      body: JSON.stringify({
+        receiver_id: receiverId,
+        content: content
+      })
     });
   }
 
-  static async getChatHistory(withUserId) {
-    return this.request(`/chat/history?with_user_id=${withUserId}`);
+  async getChatHistory(userId) {
+    return this.request(`/chat/history?user_id=${userId}`);
   }
 
-  static async getAdminInbox() {
+  /**
+   * Admin endpoints
+   */
+  async getClients() {
+    return this.request('/admin/clients');
+  }
+
+  async createClient(clientData) {
+    return this.request('/admin/clients/create', {
+      method: 'POST',
+      body: JSON.stringify(clientData)
+    });
+  }
+
+  async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
 
-  // ============ UTILITY METHODS ============
-
-  static addRequestInterceptor(interceptor) {
-    this.requestInterceptors.push(interceptor);
+  async getAllApplications() {
+    return this.request('/admin/applications');
   }
 
-  static addResponseInterceptor(interceptor) {
-    this.responseInterceptors.push(interceptor);
+  /**
+   * File validation utilities
+   */
+  validateFile(file) {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+    
+    if (file.size > API_CONFIG.MAX_FILE_SIZE) {
+      throw new Error(`File size exceeds ${API_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB limit`);
+    }
+    
+    if (!API_CONFIG.ALLOWED_FILE_TYPES.includes(file.type)) {
+      throw new Error(`File type ${file.type} is not allowed`);
+    }
+    
+    return true;
   }
 
-  static clearInterceptors() {
-    this.requestInterceptors = [];
-    this.responseInterceptors = [];
+  /**
+   * Health check
+   */
+  async healthCheck() {
+    try {
+      const response = await this.request('/health', { method: 'GET' });
+      return response;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return { status: 'error', message: error.message };
+    }
   }
 }
 
-// Export both the class and error for convenience
+// Create singleton instance
+const APIService = new APIServiceClass();
+
+// Export for convenience
 export { APIError };
 export default APIService;
