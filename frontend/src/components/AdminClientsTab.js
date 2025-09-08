@@ -149,6 +149,11 @@ const AdminClientsTab = () => {
     return client.user_email || 'Unknown';
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
   if (loading) return <LoadingSpinner fullScreen />;
 
   return (
