@@ -502,6 +502,104 @@ def update_client_status(
         "updated_by": admin_user.email
     }
 
+@router.delete("/clients/{client_id}")
+def delete_client(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a client and all associated data"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Get the associated user
+    user = db.query(User).filter(User.id == client.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Associated user not found"
+        )
+    
+    try:
+        # Store client info for response
+        client_name = f"{client.first_name or ''} {client.last_name or ''}".strip() or "Unnamed Client"
+        user_email = user.email
+        
+        # Delete associated documents first
+        documents = db.query(Document).filter(Document.client_id == client_id).all()
+        for doc in documents:
+            # Delete physical files
+            try:
+                if doc.file_url and doc.file_url.startswith('/uploads/'):
+                    file_path = f".{doc.file_url}"
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+            except Exception as e:
+                print(f"Warning: Could not delete file {doc.file_url}: {e}")
+            
+            # Delete document record
+            db.delete(doc)
+        
+        # Delete profile photo if exists
+        if client.profile_photo_url:
+            try:
+                photo_path = f".{client.profile_photo_url}"
+                if os.path.exists(photo_path):
+                    os.remove(photo_path)
+            except Exception as e:
+                print(f"Warning: Could not delete profile photo: {e}")
+        
+        # Delete any chat messages
+        from .models import ChatMessage
+        chat_messages = db.query(ChatMessage).filter(
+            (ChatMessage.sender_id == user.id) | (ChatMessage.receiver_id == user.id)
+        ).all()
+        for message in chat_messages:
+            db.delete(message)
+        
+        # Delete any job applications (if that model exists)
+        try:
+            from .models import JobApplication
+            applications = db.query(JobApplication).filter(JobApplication.client_id == client_id).all()
+            for app in applications:
+                db.delete(app)
+        except ImportError:
+            # JobApplication model doesn't exist, skip
+            pass
+        
+        # Delete the client profile
+        db.delete(client)
+        
+        # Delete the user account
+        db.delete(user)
+        
+        # Commit all deletions
+        db.commit()
+        
+        return {
+            "message": f"Client '{client_name}' and all associated data deleted successfully",
+            "deleted_client": {
+                "id": client_id,
+                "name": client_name,
+                "email": user_email
+            },
+            "deleted_by": admin_user.email,
+            "deleted_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete client: {str(e)}"
+        )
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = [
