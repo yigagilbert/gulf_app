@@ -110,7 +110,135 @@ class JobPlacementAPITester:
             print(f"   Admin Token: {self.admin_token[:20]}...")
         return success
 
-    def test_client_profile(self):
+    def test_health_check(self):
+        """Test health check endpoint"""
+        success, response = self.run_test(
+            "Health Check",
+            "GET",
+            "health",
+            200
+        )
+        if success:
+            print(f"   Health Status: {response.get('status', 'Unknown')}")
+        return success
+
+    def test_authentication_endpoints(self):
+        """Test authentication endpoints specifically"""
+        print("\n🔐 AUTHENTICATION ENDPOINT TESTS")
+        print("-" * 40)
+        
+        # Test client registration
+        reg_success, client_email = self.test_client_registration()
+        if not reg_success:
+            print("❌ Registration endpoint failed")
+            return False
+        
+        # Test client login
+        login_success = self.test_client_login(client_email)
+        if not login_success:
+            print("❌ Login endpoint failed")
+            return False
+        
+        # Test admin login with provided credentials
+        admin_success = self.test_admin_login()
+        if not admin_success:
+            print("❌ Admin login failed")
+            return False
+        
+        return True
+
+    def test_profile_endpoints(self):
+        """Test profile endpoints specifically"""
+        print("\n👤 PROFILE ENDPOINT TESTS")
+        print("-" * 40)
+        
+        if not self.client_token:
+            print("❌ No client token available for profile tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.client_token}'}
+        
+        # Test /api/profile/me
+        success1, _ = self.run_test(
+            "GET Profile Me",
+            "GET",
+            "profile/me",
+            200,
+            headers=headers
+        )
+        
+        # Test /api/profile/me/onboarding-status
+        success2, _ = self.run_test(
+            "GET Onboarding Status",
+            "GET",
+            "profile/me/onboarding-status",
+            200,
+            headers=headers
+        )
+        
+        return success1 and success2
+
+    def test_admin_endpoints_specific(self):
+        """Test admin endpoints specifically"""
+        print("\n🔧 ADMIN ENDPOINT TESTS")
+        print("-" * 40)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for admin tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Test /api/admin/clients
+        success, _ = self.run_test(
+            "GET Admin Clients",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        return success
+
+    def test_jwt_validation(self):
+        """Test JWT token validation"""
+        print("\n🔑 JWT TOKEN VALIDATION TESTS")
+        print("-" * 40)
+        
+        # Test with invalid token
+        invalid_headers = {'Authorization': 'Bearer invalid_token_here'}
+        
+        success1, _ = self.run_test(
+            "Invalid Token Test",
+            "GET",
+            "profile/me",
+            401,  # Should return 401 for invalid token
+            headers=invalid_headers
+        )
+        
+        # Test without token
+        success2, _ = self.run_test(
+            "No Token Test",
+            "GET",
+            "profile/me",
+            401  # Should return 401 for missing token
+        )
+        
+        # Test with valid token (should work)
+        if self.client_token:
+            valid_headers = {'Authorization': f'Bearer {self.client_token}'}
+            success3, _ = self.run_test(
+                "Valid Token Test",
+                "GET",
+                "profile/me",
+                200,
+                headers=valid_headers
+            )
+        else:
+            success3 = False
+            print("❌ No valid token available for testing")
+        
+        return success1 and success2 and success3
         """Test client profile endpoints"""
         if not self.client_token:
             print("❌ No client token available for profile test")
