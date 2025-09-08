@@ -914,6 +914,7 @@ def main():
     print(f"   ✅ JWT Validation: {'PASS' if jwt_success else 'FAIL'}")
     print(f"   ✅ Admin Client Filtering: {'PASS' if admin_filtering_success else 'FAIL'}")
     print(f"   ✅ Gulf Admin Client Details: {'PASS' if gulf_admin_success else 'FAIL'}")
+    print(f"   ✅ Admin Document Upload: {'PASS' if document_upload_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
