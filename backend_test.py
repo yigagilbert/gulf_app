@@ -699,6 +699,7 @@ def main():
     print(f"   ✅ Profile Endpoints: {'PASS' if profile_success else 'FAIL'}")
     print(f"   ✅ Admin Endpoints: {'PASS' if admin_success else 'FAIL'}")
     print(f"   ✅ JWT Validation: {'PASS' if jwt_success else 'FAIL'}")
+    print(f"   ✅ Admin Client Filtering: {'PASS' if admin_filtering_success else 'FAIL'}")
     print(f"   ✅ Gulf Admin Client Details: {'PASS' if gulf_admin_success else 'FAIL'}")
     
     if success_rate >= 80:
