@@ -361,6 +361,17 @@ const AdminClientsTab = () => {
                         </button>
                         
                         <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowStatusUpdate(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-700 p-1 rounded hover:bg-indigo-50"
+                          title="Update Status"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        
+                        <button
                           className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-50"
                           title="More Actions"
                         >
