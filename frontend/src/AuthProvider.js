@@ -164,22 +164,48 @@ export const AuthProvider = ({ children }) => {
           // Set the token in APIService
           APIService.setAuthToken(authData.token);
           
-          // Verify token is still valid by making a test request
+          // Try to verify token is still valid, but don't fail the session if verification fails
           try {
             const response = await APIService.request('/profile/me', { method: 'GET' });
-            setUser(authData.user);
-            updateActivity(); // Start activity tracking
-            console.log('Session restored from storage');
+            // If verification succeeds, use the fresh user data
+            setUser(response || authData.user);
+            updateActivity();
+            console.log('Session restored and verified from storage');
           } catch (apiError) {
-            console.log('Stored token invalid, clearing session');
-            StorageManager.clearAuthData();
-            APIService.clearAuthToken();
+            console.log('Token verification failed, checking error type:', apiError);
+            
+            // Only clear session for explicit authentication errors
+            if (apiError.isAuthError && (apiError.status === 401 || apiError.status === 403)) {
+              console.log('Authentication expired, clearing session');
+              StorageManager.clearAuthData();
+              APIService.clearAuthToken();
+            } else {
+              // For network errors or server issues, trust the stored token
+              console.log('Network/server error during verification, trusting stored session');
+              setUser(authData.user);
+              updateActivity();
+              
+              // Try to refresh the session in the background
+              setTimeout(async () => {
+                try {
+                  await APIService.request('/profile/me', { method: 'GET' });
+                  console.log('Background session refresh successful');
+                } catch (retryError) {
+                  console.log('Background session refresh failed:', retryError);
+                  // If it's still an auth error after retry, then clear session
+                  if (retryError.isAuthError && (retryError.status === 401 || retryError.status === 403)) {
+                    console.log('Session definitely expired, logging out');
+                    logout();
+                  }
+                }
+              }, 5000); // Retry after 5 seconds
+            }
           }
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
         setError('Failed to restore session');
-        StorageManager.clearAuthData();
+        // Don't clear storage here - only clear on explicit auth errors
       } finally {
         setLoading(false);
         setInitialized(true);
@@ -187,7 +213,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
-  }, [updateActivity]);
+  }, [updateActivity, logout]);
 
   // Set up heartbeat to keep session alive
   useEffect(() => {
