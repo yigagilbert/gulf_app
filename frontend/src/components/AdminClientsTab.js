@@ -117,6 +117,13 @@ const AdminClientsTab = () => {
     setTimeout(() => setSuccess(null), 3000);
   };
 
+  const handleClientDeleted = async (deleteData) => {
+    setSuccess(`Client '${deleteData.clientName}' has been permanently deleted`);
+    // Refresh clients list to remove deleted client
+    await loadClients();
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
   const loadClientDocuments = async (clientId) => {
     try {
       const documents = await APIService.request(`/admin/clients/${clientId}/documents`);
