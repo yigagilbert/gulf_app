@@ -467,6 +467,12 @@ class APIServiceClass {
     });
   }
 
+  async deleteClient(clientId) {
+    return this.request(`/admin/clients/${clientId}`, {
+      method: 'DELETE'
+    });
+  }
+
   async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
