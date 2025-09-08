@@ -108,6 +108,13 @@ const AdminClientsTab = () => {
     setTimeout(() => setSuccess(null), 3000);
   };
 
+  const handleStatusUpdated = async (updateData) => {
+    setSuccess(`Client status updated from ${updateData.oldStatus} to ${updateData.newStatus}`);
+    // Refresh clients list to show updated status
+    await loadClients();
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
   const loadClientDocuments = async (clientId) => {
     try {
       const documents = await APIService.request(`/admin/clients/${clientId}/documents`);
