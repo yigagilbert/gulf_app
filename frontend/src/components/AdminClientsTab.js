@@ -300,7 +300,7 @@ const AdminClientsTab = () => {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         statusColors[client.status] || 'bg-gray-100 text-gray-800'
                       }`}>
-                        {client.status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
+                        {statusLabels[client.status] || client.status || 'Unknown'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
