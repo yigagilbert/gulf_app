@@ -40,6 +40,12 @@
 #### 4. Admin Endpoints ✅
 - **Get Clients**: `/api/admin/clients` - PASS
   - Successfully retrieves client list for admin users
+  - Returns 8 clients with proper data structure
+  - Proper admin authentication required
+- **Get Client Details**: `/api/admin/clients/{client_id}` - PASS
+  - Successfully retrieves individual client details
+  - Tested with specific client ID: a434d812-1c6a-4e3d-945a-8153c7088c51
+  - Returns complete client profile data matching frontend expectations
   - Proper admin authentication required
 
 #### 5. JWT Token Validation ✅
