@@ -132,6 +132,18 @@ backend:
         agent: "testing"
         comment: "All API routes properly configured with /api prefix. Kubernetes ingress routing working correctly."
 
+  - task: "Gulf Consultants Admin Client Details"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin client list endpoint (/api/admin/clients) returns 8 clients with proper structure. Individual client details endpoint (/api/admin/clients/{client_id}) successfully retrieves specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51. All data structures match frontend expectations including required fields: id, user_email, first_name, last_name, status, created_at for list and id, user_id, first_name, last_name, status, created_at, updated_at for details. Fix is working correctly."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
