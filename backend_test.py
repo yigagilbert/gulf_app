@@ -1275,6 +1275,10 @@ def main():
     print("-" * 50)
     frontend_403_success = tester.test_frontend_403_issue_reproduction()
     
+    print("\n🏢 GULF CONSULTANTS CLIENT STATUS MANAGEMENT TESTS")
+    print("-" * 60)
+    status_management_success = tester.test_gulf_consultants_status_management()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
@@ -1293,6 +1297,7 @@ def main():
     print(f"   ✅ Gulf Admin Client Details: {'PASS' if gulf_admin_success else 'FAIL'}")
     print(f"   ✅ Admin Document Upload: {'PASS' if document_upload_success else 'FAIL'}")
     print(f"   ✅ Frontend 403 Issue Test: {'PASS' if frontend_403_success else 'FAIL'}")
+    print(f"   ✅ Status Management System: {'PASS' if status_management_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
