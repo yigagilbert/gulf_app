@@ -432,6 +432,34 @@ class APIServiceClass {
     });
   }
 
+  async uploadClientDocument(clientId, file, documentType) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request(`/admin/clients/${clientId}/documents/upload?document_type=${documentType}`, {
+      method: 'POST',
+      body: formData,
+      skipContentType: true
+    });
+  }
+
+  async getClientDocuments(clientId) {
+    return this.request(`/admin/clients/${clientId}/documents`);
+  }
+
+  async deleteClientDocument(clientId, documentId) {
+    return this.request(`/admin/clients/${clientId}/documents/${documentId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async verifyDocument(documentId, isVerified) {
+    return this.request(`/admin/documents/${documentId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_verified: isVerified })
+    });
+  }
+
   async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
