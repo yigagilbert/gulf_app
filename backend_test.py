@@ -392,66 +392,56 @@ class JobPlacementAPITester:
         return success
 
 def main():
-    print("🚀 Starting Job Placement API Tests")
-    print("=" * 50)
+    print("🚀 Gulf Consultants Job Placement API Tests")
+    print("🌐 Testing Backend URL: https://onboard-gulf.preview.emergentagent.com/api")
+    print("=" * 60)
     
     tester = JobPlacementAPITester()
     
-    # Test sequence
-    print("\n📋 AUTHENTICATION TESTS")
+    # Test sequence focusing on review request requirements
+    print("\n🏥 HEALTH CHECK TEST")
     print("-" * 30)
+    health_success = tester.test_health_check()
     
-    # Test client registration and login
-    reg_success, client_email = tester.test_client_registration()
-    if not reg_success:
-        print("❌ Client registration failed, stopping tests")
-        return 1
+    print("\n🔐 AUTHENTICATION ENDPOINT TESTS")
+    print("-" * 40)
+    auth_success = tester.test_authentication_endpoints()
     
-    login_success = tester.test_client_login(client_email)
-    if not login_success:
-        print("❌ Client login failed, stopping tests")
-        return 1
+    print("\n👤 PROFILE ENDPOINT TESTS")
+    print("-" * 40)
+    profile_success = tester.test_profile_endpoints()
     
-    # Test admin login
-    admin_login_success = tester.test_admin_login()
-    if not admin_login_success:
-        print("❌ Admin login failed")
+    print("\n🔧 ADMIN ENDPOINT TESTS")
+    print("-" * 40)
+    admin_success = tester.test_admin_endpoints_specific()
     
-    print("\n👤 PROFILE TESTS")
-    print("-" * 30)
-    tester.test_client_profile()
-    
-    print("\n💬 CHAT TESTS")
-    print("-" * 30)
-    tester.test_chat_functionality()
-    
-    print("\n💼 JOBS TESTS")
-    print("-" * 30)
-    tester.test_jobs_endpoints()
-    
-    print("\n📄 DOCUMENTS TESTS")
-    print("-" * 30)
-    tester.test_documents_endpoints()
-    
-    print("\n🔧 ADMIN TESTS")
-    print("-" * 30)
-    tester.test_admin_endpoints()
+    print("\n🔑 JWT TOKEN VALIDATION TESTS")
+    print("-" * 40)
+    jwt_success = tester.test_jwt_validation()
     
     # Print final results
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
     print(f"Tests passed: {tester.tests_passed}/{tester.tests_run}")
     success_rate = (tester.tests_passed / tester.tests_run * 100) if tester.tests_run > 0 else 0
     print(f"Success rate: {success_rate:.1f}%")
     
+    # Detailed results
+    print("\n📋 TEST SUMMARY:")
+    print(f"   ✅ Health Check: {'PASS' if health_success else 'FAIL'}")
+    print(f"   ✅ Authentication: {'PASS' if auth_success else 'FAIL'}")
+    print(f"   ✅ Profile Endpoints: {'PASS' if profile_success else 'FAIL'}")
+    print(f"   ✅ Admin Endpoints: {'PASS' if admin_success else 'FAIL'}")
+    print(f"   ✅ JWT Validation: {'PASS' if jwt_success else 'FAIL'}")
+    
     if success_rate >= 80:
-        print("🎉 Overall: GOOD - Most tests passed")
+        print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
         return 0
     elif success_rate >= 60:
-        print("⚠️  Overall: FAIR - Some issues found")
+        print("\n⚠️  Overall: GOOD - Minor issues found")
         return 1
     else:
-        print("❌ Overall: POOR - Major issues found")
+        print("\n❌ Overall: POOR - Major issues found")
         return 1
 
 if __name__ == "__main__":
