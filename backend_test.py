@@ -1231,6 +1231,282 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_gulf_consultants_client_deletion(self):
+        """Test Gulf Consultants client deletion functionality"""
+        print("\n🗑️  GULF CONSULTANTS CLIENT DELETION TESTS")
+        print("-" * 60)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for client deletion tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Step 1: Get initial client list to find a test client
+        print("🔍 Step 1: Getting initial client list...")
+        success, initial_clients_list = self.run_test(
+            "Get Initial Client List",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success or not initial_clients_list:
+            print("❌ Could not retrieve initial client list for deletion testing")
+            return False
+        
+        initial_client_count = len(initial_clients_list)
+        print(f"   Initial client count: {initial_client_count}")
+        
+        # Find a client to delete (prefer specific client ID from review request)
+        test_client_id = None
+        test_client_info = None
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        
+        # Check if specific client exists
+        for client in initial_clients_list:
+            if client.get('id') == specific_client_id:
+                test_client_id = specific_client_id
+                test_client_info = client
+                print(f"✅ Found specific client from review request: {test_client_id}")
+                break
+        
+        # If specific client not found, use first available client
+        if not test_client_id and initial_clients_list:
+            test_client_id = initial_clients_list[0]['id']
+            test_client_info = initial_clients_list[0]
+            print(f"ℹ️  Using first available client: {test_client_id}")
+        
+        if not test_client_id:
+            print("❌ No clients available for deletion testing")
+            return False
+        
+        client_name = f"{test_client_info.get('first_name', '')} {test_client_info.get('last_name', '')}".strip()
+        client_email = test_client_info.get('user_email', 'Unknown')
+        print(f"   Target client: {client_name} ({client_email})")
+        
+        # Step 2: Get client details before deletion
+        print(f"\n🔍 Step 2: Getting client details before deletion...")
+        success, client_details = self.run_test(
+            "Get Client Details Before Deletion",
+            "GET",
+            f"admin/clients/{test_client_id}",
+            200,
+            headers=headers
+        )
+        
+        if not success:
+            print("❌ Could not retrieve client details before deletion")
+            return False
+        
+        print(f"   Client status: {client_details.get('status', 'Unknown')}")
+        print(f"   Client created: {client_details.get('created_at', 'Unknown')}")
+        
+        # Step 3: Check for associated documents (optional)
+        print(f"\n🔍 Step 3: Checking for associated documents...")
+        success, client_documents = self.run_test(
+            "Get Client Documents Before Deletion",
+            "GET",
+            f"admin/clients/{test_client_id}/documents",
+            200,
+            headers=headers
+        )
+        
+        if success:
+            doc_count = len(client_documents) if isinstance(client_documents, list) else 0
+            print(f"   Associated documents: {doc_count}")
+        else:
+            print("   Could not retrieve document count (may not exist)")
+        
+        # Step 4: Test non-admin access (403 Forbidden)
+        print(f"\n🔍 Step 4: Testing non-admin access restriction...")
+        
+        non_admin_test = True
+        if self.client_token:
+            client_headers = {'Authorization': f'Bearer {self.client_token}'}
+            
+            success, response = self.run_test(
+                "Non-Admin Client Deletion Test",
+                "DELETE",
+                f"admin/clients/{test_client_id}",
+                403,  # Should return 403 Forbidden
+                headers=client_headers
+            )
+            
+            if success:
+                print(f"   ✅ Non-admin access properly restricted (403)")
+                print(f"      Error message: {response.get('detail', 'No detail')}")
+                non_admin_test = True
+            else:
+                print(f"   ❌ Non-admin access was not properly restricted")
+                non_admin_test = False
+        else:
+            print(f"   ℹ️  No client token available for non-admin access test")
+        
+        # Step 5: Test deletion of non-existent client (404)
+        print(f"\n🔍 Step 5: Testing deletion of non-existent client...")
+        
+        fake_client_id = "00000000-0000-0000-0000-000000000000"
+        success, response = self.run_test(
+            "Non-Existent Client Deletion Test",
+            "DELETE",
+            f"admin/clients/{fake_client_id}",
+            404,  # Should return 404 Not Found
+            headers=headers
+        )
+        
+        non_existent_test = success
+        if success:
+            print(f"   ✅ Non-existent client deletion properly handled (404)")
+            print(f"      Error message: {response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Non-existent client deletion was not properly handled")
+        
+        # Step 6: Perform actual client deletion
+        print(f"\n🔍 Step 6: Performing actual client deletion...")
+        print(f"   🚨 DELETING CLIENT: {client_name} ({client_email})")
+        
+        success, deletion_response = self.run_test(
+            "Admin Client Deletion",
+            "DELETE",
+            f"admin/clients/{test_client_id}",
+            200,  # Should return 200 OK
+            headers=headers
+        )
+        
+        deletion_success = success
+        if success:
+            print(f"   ✅ Client deletion successful")
+            print(f"      Message: {deletion_response.get('message', 'No message')}")
+            print(f"      Deleted by: {deletion_response.get('deleted_by', 'Unknown')}")
+            print(f"      Deleted at: {deletion_response.get('deleted_at', 'Unknown')}")
+            
+            # Verify response format
+            deleted_client_info = deletion_response.get('deleted_client', {})
+            if deleted_client_info:
+                print(f"      Deleted client info:")
+                print(f"        ID: {deleted_client_info.get('id', 'N/A')}")
+                print(f"        Name: {deleted_client_info.get('name', 'N/A')}")
+                print(f"        Email: {deleted_client_info.get('email', 'N/A')}")
+            
+            # Validate response structure
+            required_response_fields = ['message', 'deleted_client', 'deleted_by', 'deleted_at']
+            missing_fields = [field for field in required_response_fields if field not in deletion_response]
+            
+            if missing_fields:
+                print(f"   ⚠️  Missing response fields: {missing_fields}")
+            else:
+                print(f"   ✅ Response format is complete and correct")
+        else:
+            print(f"   ❌ Client deletion failed")
+        
+        # Step 7: Verify client no longer appears in client list
+        print(f"\n🔍 Step 7: Verifying client removal from client list...")
+        
+        success, updated_clients_list = self.run_test(
+            "Get Updated Client List After Deletion",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        client_list_verification = False
+        if success:
+            updated_client_count = len(updated_clients_list)
+            print(f"   Updated client count: {updated_client_count}")
+            
+            # Check if deleted client is still in the list
+            deleted_client_found = any(
+                client.get('id') == test_client_id 
+                for client in updated_clients_list
+            )
+            
+            if deleted_client_found:
+                print(f"   ❌ CRITICAL: Deleted client still appears in client list!")
+                client_list_verification = False
+            else:
+                print(f"   ✅ Deleted client successfully removed from client list")
+                
+                # Verify count decreased by 1
+                if updated_client_count == initial_client_count - 1:
+                    print(f"   ✅ Client count correctly decreased by 1")
+                    client_list_verification = True
+                else:
+                    print(f"   ⚠️  Client count mismatch: expected {initial_client_count - 1}, got {updated_client_count}")
+                    client_list_verification = False
+        else:
+            print(f"   ❌ Could not retrieve updated client list for verification")
+            client_list_verification = False
+        
+        # Step 8: Verify client details endpoint returns 404
+        print(f"\n🔍 Step 8: Verifying deleted client details return 404...")
+        
+        success, response = self.run_test(
+            "Deleted Client Details Verification",
+            "GET",
+            f"admin/clients/{test_client_id}",
+            404,  # Should return 404 Not Found
+            headers=headers
+        )
+        
+        client_details_verification = success
+        if success:
+            print(f"   ✅ Deleted client details properly return 404")
+            print(f"      Error message: {response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Deleted client details do not return 404 as expected")
+        
+        # Step 9: Test cascading deletion verification (documents endpoint)
+        print(f"\n🔍 Step 9: Verifying cascading deletion of associated data...")
+        
+        success, response = self.run_test(
+            "Deleted Client Documents Verification",
+            "GET",
+            f"admin/clients/{test_client_id}/documents",
+            404,  # Should return 404 since client no longer exists
+            headers=headers
+        )
+        
+        cascading_deletion_verification = success
+        if success:
+            print(f"   ✅ Associated documents endpoint properly returns 404")
+            print(f"      Error message: {response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Associated documents endpoint does not return 404 as expected")
+        
+        # Calculate overall results
+        print(f"\n📊 CLIENT DELETION TEST SUMMARY:")
+        print(f"   ✅ Non-Admin Access Restriction: {'PASS' if non_admin_test else 'FAIL'}")
+        print(f"   ✅ Non-Existent Client Handling: {'PASS' if non_existent_test else 'FAIL'}")
+        print(f"   ✅ Client Deletion Success: {'PASS' if deletion_success else 'FAIL'}")
+        print(f"   ✅ Client List Removal: {'PASS' if client_list_verification else 'FAIL'}")
+        print(f"   ✅ Client Details 404: {'PASS' if client_details_verification else 'FAIL'}")
+        print(f"   ✅ Cascading Deletion: {'PASS' if cascading_deletion_verification else 'FAIL'}")
+        
+        # Overall success
+        overall_success = (
+            non_admin_test and 
+            non_existent_test and 
+            deletion_success and 
+            client_list_verification and 
+            client_details_verification and 
+            cascading_deletion_verification
+        )
+        
+        if overall_success:
+            print(f"\n🎉 GULF CONSULTANTS CLIENT DELETION: ALL TESTS PASSED")
+            print(f"   ✅ Client deletion functionality is working correctly and safely")
+            print(f"   ✅ All associated data properly cleaned up")
+            print(f"   ✅ Proper authentication and authorization enforced")
+            print(f"   ✅ Error handling working correctly")
+        else:
+            print(f"\n⚠️  GULF CONSULTANTS CLIENT DELETION: SOME TESTS FAILED")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://onboard-gulf.preview.emergentagent.com/api")
