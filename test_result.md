@@ -163,6 +163,18 @@ backend:
         agent: "testing"
         comment: "Admin client list endpoint (/api/admin/clients) returns 8 clients with proper structure. Individual client details endpoint (/api/admin/clients/{client_id}) successfully retrieves specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51. All data structures match frontend expectations including required fields: id, user_email, first_name, last_name, status, created_at for list and id, user_id, first_name, last_name, status, created_at, updated_at for details. Fix is working correctly."
 
+  - task: "Admin Client List Filtering"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin client list filtering tested and verified working correctly. The /api/admin/clients endpoint properly filters by User.role == 'client' and excludes admin users. Confirmed that admin@example.com (role: super_admin) is correctly excluded from client list. Found 8 legitimate clients returned. One user 'admincreated@example.com' appears in list but is a legitimate client with role 'client' created via admin client creation endpoint. Filtering logic is sound and working as expected."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
