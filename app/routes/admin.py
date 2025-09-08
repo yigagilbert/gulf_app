@@ -6,7 +6,7 @@ import uuid
 import os
 import shutil
 from pathlib import Path
-from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus
+from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage
 from app.schemas import (
     UserCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
     AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate
