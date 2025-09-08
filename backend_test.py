@@ -1578,6 +1578,7 @@ def main():
     print(f"   ✅ Admin Document Upload: {'PASS' if document_upload_success else 'FAIL'}")
     print(f"   ✅ Frontend 403 Issue Test: {'PASS' if frontend_403_success else 'FAIL'}")
     print(f"   ✅ Status Management System: {'PASS' if status_management_success else 'FAIL'}")
+    print(f"   ✅ Client Deletion System: {'PASS' if client_deletion_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
