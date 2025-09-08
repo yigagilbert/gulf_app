@@ -991,6 +991,246 @@ class JobPlacementAPITester:
         
         return success_count > 0 and forbidden_count == 0
 
+    def test_gulf_consultants_status_management(self):
+        """Test Gulf Consultants client status management system"""
+        print("\n🏢 GULF CONSULTANTS CLIENT STATUS MANAGEMENT TESTS")
+        print("-" * 60)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for status management tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Step 1: Get client list to find a test client
+        print("🔍 Step 1: Getting client list to find test client...")
+        success, clients_list = self.run_test(
+            "Get Client List for Status Testing",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success or not clients_list:
+            print("❌ Could not retrieve client list for status testing")
+            return False
+        
+        # Find a client to test with (prefer specific client ID from review request)
+        test_client_id = None
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        
+        # Check if specific client exists
+        for client in clients_list:
+            if client.get('id') == specific_client_id:
+                test_client_id = specific_client_id
+                print(f"✅ Found specific client from review request: {test_client_id}")
+                break
+        
+        # If specific client not found, use first available client
+        if not test_client_id and clients_list:
+            test_client_id = clients_list[0]['id']
+            print(f"ℹ️  Using first available client: {test_client_id}")
+        
+        if not test_client_id:
+            print("❌ No clients available for status testing")
+            return False
+        
+        # Step 2: Get initial client status
+        print(f"\n🔍 Step 2: Getting initial status for client {test_client_id}...")
+        success, client_details = self.run_test(
+            "Get Initial Client Status",
+            "GET",
+            f"admin/clients/{test_client_id}",
+            200,
+            headers=headers
+        )
+        
+        if not success:
+            print("❌ Could not retrieve client details")
+            return False
+        
+        initial_status = client_details.get('status', 'unknown')
+        print(f"   Initial Status: {initial_status}")
+        
+        # Step 3: Test status workflow transitions
+        print(f"\n🔍 Step 3: Testing status workflow transitions...")
+        
+        # Define the status workflow to test
+        status_transitions = [
+            ("new", "Update client to 'new' status"),
+            ("verified", "Update client to 'verified' status"),
+            ("traveled", "Update client to 'traveled' status"),
+            ("returned", "Update client to 'returned' status")
+        ]
+        
+        transition_results = []
+        
+        for new_status, description in status_transitions:
+            print(f"\n   🔄 Testing: {description}")
+            
+            success, response = self.run_test(
+                f"Status Update: {new_status}",
+                "PUT",
+                f"admin/clients/{test_client_id}/status",
+                200,
+                data={"status": new_status},
+                headers=headers
+            )
+            
+            if success:
+                print(f"   ✅ Successfully updated to '{new_status}'")
+                print(f"      Response: {response.get('message', 'No message')}")
+                print(f"      Updated by: {response.get('updated_by', 'Unknown')}")
+                transition_results.append(True)
+                
+                # Verify the status was actually updated
+                verify_success, verify_details = self.run_test(
+                    f"Verify Status Update: {new_status}",
+                    "GET",
+                    f"admin/clients/{test_client_id}",
+                    200,
+                    headers=headers
+                )
+                
+                if verify_success:
+                    actual_status = verify_details.get('status')
+                    if actual_status == new_status:
+                        print(f"   ✅ Status verification successful: {actual_status}")
+                    else:
+                        print(f"   ❌ Status verification failed: expected '{new_status}', got '{actual_status}'")
+                        transition_results[-1] = False
+                else:
+                    print(f"   ❌ Could not verify status update")
+                    transition_results[-1] = False
+            else:
+                print(f"   ❌ Failed to update to '{new_status}'")
+                transition_results.append(False)
+        
+        # Step 4: Test invalid status rejection
+        print(f"\n🔍 Step 4: Testing invalid status rejection...")
+        
+        invalid_statuses = ["invalid_status", "pending", "completed", "cancelled", ""]
+        invalid_status_results = []
+        
+        for invalid_status in invalid_statuses:
+            print(f"\n   🚫 Testing invalid status: '{invalid_status}'")
+            
+            success, response = self.run_test(
+                f"Invalid Status Test: {invalid_status}",
+                "PUT",
+                f"admin/clients/{test_client_id}/status",
+                400,  # Should return 400 Bad Request
+                data={"status": invalid_status},
+                headers=headers
+            )
+            
+            if success:
+                print(f"   ✅ Invalid status '{invalid_status}' properly rejected")
+                print(f"      Error message: {response.get('detail', 'No detail')}")
+                invalid_status_results.append(True)
+            else:
+                print(f"   ❌ Invalid status '{invalid_status}' was not properly rejected")
+                invalid_status_results.append(False)
+        
+        # Step 5: Test missing status parameter
+        print(f"\n🔍 Step 5: Testing missing status parameter...")
+        
+        success, response = self.run_test(
+            "Missing Status Parameter Test",
+            "PUT",
+            f"admin/clients/{test_client_id}/status",
+            400,  # Should return 400 Bad Request
+            data={},  # Empty data
+            headers=headers
+        )
+        
+        missing_status_test = success
+        if success:
+            print(f"   ✅ Missing status parameter properly rejected")
+            print(f"      Error message: {response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Missing status parameter was not properly rejected")
+        
+        # Step 6: Test non-admin access (if we have a client token)
+        print(f"\n🔍 Step 6: Testing non-admin access restriction...")
+        
+        non_admin_test = True
+        if self.client_token:
+            client_headers = {'Authorization': f'Bearer {self.client_token}'}
+            
+            success, response = self.run_test(
+                "Non-Admin Access Test",
+                "PUT",
+                f"admin/clients/{test_client_id}/status",
+                403,  # Should return 403 Forbidden
+                data={"status": "verified"},
+                headers=client_headers
+            )
+            
+            if success:
+                print(f"   ✅ Non-admin access properly restricted")
+                print(f"      Error message: {response.get('detail', 'No detail')}")
+                non_admin_test = True
+            else:
+                print(f"   ❌ Non-admin access was not properly restricted")
+                non_admin_test = False
+        else:
+            print(f"   ℹ️  No client token available for non-admin access test")
+        
+        # Step 7: Verify client list shows updated status
+        print(f"\n🔍 Step 7: Verifying client list shows updated status...")
+        
+        success, updated_clients_list = self.run_test(
+            "Verify Updated Status in Client List",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        client_list_test = False
+        if success:
+            # Find our test client in the updated list
+            for client in updated_clients_list:
+                if client.get('id') == test_client_id:
+                    list_status = client.get('status')
+                    print(f"   ✅ Client found in list with status: {list_status}")
+                    client_list_test = True
+                    break
+            
+            if not client_list_test:
+                print(f"   ❌ Test client not found in updated client list")
+        else:
+            print(f"   ❌ Could not retrieve updated client list")
+        
+        # Calculate overall results
+        all_transitions_passed = all(transition_results)
+        all_invalid_rejected = all(invalid_status_results)
+        
+        print(f"\n📊 STATUS MANAGEMENT TEST SUMMARY:")
+        print(f"   ✅ Status Transitions: {'PASS' if all_transitions_passed else 'FAIL'} ({sum(transition_results)}/{len(transition_results)})")
+        print(f"   ✅ Invalid Status Rejection: {'PASS' if all_invalid_rejected else 'FAIL'} ({sum(invalid_status_results)}/{len(invalid_status_results)})")
+        print(f"   ✅ Missing Status Rejection: {'PASS' if missing_status_test else 'FAIL'}")
+        print(f"   ✅ Non-Admin Access Restriction: {'PASS' if non_admin_test else 'FAIL'}")
+        print(f"   ✅ Client List Status Update: {'PASS' if client_list_test else 'FAIL'}")
+        
+        # Overall success
+        overall_success = (
+            all_transitions_passed and 
+            all_invalid_rejected and 
+            missing_status_test and 
+            non_admin_test and 
+            client_list_test
+        )
+        
+        if overall_success:
+            print(f"\n🎉 GULF CONSULTANTS STATUS MANAGEMENT: ALL TESTS PASSED")
+        else:
+            print(f"\n⚠️  GULF CONSULTANTS STATUS MANAGEMENT: SOME TESTS FAILED")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://onboard-gulf.preview.emergentagent.com/api")
