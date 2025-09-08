@@ -456,6 +456,21 @@ const AdminClientsTab = () => {
         />
       )}
 
+      {/* Delete Confirmation Modal */}
+      {selectedClient && (
+        <AdminClientDeleteConfirmation
+          isOpen={showDeleteConfirmation}
+          onClose={() => {
+            setShowDeleteConfirmation(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          clientEmail={selectedClient.user_email}
+          onSuccess={handleClientDeleted}
+        />
+      )}
+
       {/* PDF Viewer */}
       {selectedDocument && (
         <PDFViewer
