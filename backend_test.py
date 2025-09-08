@@ -779,17 +779,22 @@ class JobPlacementAPITester:
         
         if profile_success:
             print("✅ Admin token is valid and working")
-            if isinstance(profile_data, dict):
-                user_role = profile_data.get('role', 'Unknown')
-                print(f"   Admin Role: {user_role}")
-                if user_role.lower() in ['admin', 'super_admin']:
-                    print("✅ Admin role confirmed")
-                    role_valid = True
-                else:
-                    print(f"❌ Invalid admin role: {user_role}")
-                    role_valid = False
+            # Since profile/me returns ClientProfile, we need to check the admin role differently
+            # Let's test admin access to admin endpoints to verify role
+            admin_test_success, admin_test_data = self.run_test(
+                "Admin Role Verification via Admin Endpoint",
+                "GET",
+                "admin/clients",
+                200,
+                headers=headers
+            )
+            
+            if admin_test_success:
+                print("✅ Admin role confirmed - can access admin endpoints")
+                role_valid = True
             else:
-                role_valid = True  # Assume valid if we got 200
+                print("❌ Admin role verification failed - cannot access admin endpoints")
+                role_valid = False
         else:
             print("❌ Admin token validation failed")
             role_valid = False
