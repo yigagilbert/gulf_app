@@ -861,7 +861,135 @@ class JobPlacementAPITester:
             print("   - This indicates a permission issue in the get_admin_user dependency")
             print("   - or in the admin document upload endpoint implementation")
         
-        return upload_success and role_valid and security_test and no_token_test
+    def test_frontend_403_issue_reproduction(self):
+        """Reproduce the specific 403 Forbidden issue from frontend"""
+        print("\n🚨 FRONTEND 403 FORBIDDEN ISSUE REPRODUCTION")
+        print("-" * 50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for 403 issue reproduction")
+            return False
+        
+        # Test multiple requests to the same endpoint to see if it's intermittent
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        print(f"🔍 Testing multiple requests to reproduce 403 Forbidden issue...")
+        print(f"   Client ID: {specific_client_id}")
+        print(f"   Admin Token: {self.admin_token[:20]}...")
+        
+        # Create test file content
+        test_file_content = b"Test document content for 403 issue reproduction"
+        
+        import requests
+        
+        url = f"{self.base_url}/admin/clients/{specific_client_id}/documents/upload"
+        
+        files = {
+            'file': ('test_document.pdf', test_file_content, 'application/pdf')
+        }
+        data = {
+            'document_type': 'cv'
+        }
+        
+        # Test multiple requests to see if there's inconsistency
+        results = []
+        for i in range(5):
+            try:
+                print(f"   Request {i+1}/5...")
+                response = requests.post(
+                    url,
+                    files=files,
+                    data=data,
+                    headers=headers
+                )
+                
+                status = response.status_code
+                results.append(status)
+                
+                if status == 200:
+                    print(f"   ✅ Request {i+1}: SUCCESS (200)")
+                elif status == 403:
+                    print(f"   ❌ Request {i+1}: FORBIDDEN (403)")
+                    try:
+                        error_data = response.json()
+                        print(f"      Error: {error_data.get('detail', 'No detail')}")
+                    except:
+                        print(f"      Raw response: {response.text}")
+                else:
+                    print(f"   ⚠️  Request {i+1}: UNEXPECTED ({status})")
+                    
+            except Exception as e:
+                print(f"   ❌ Request {i+1}: ERROR - {str(e)}")
+                results.append(0)  # Error code
+        
+        # Analyze results
+        success_count = results.count(200)
+        forbidden_count = results.count(403)
+        error_count = len([r for r in results if r not in [200, 403]])
+        
+        print(f"\n📊 RESULTS ANALYSIS:")
+        print(f"   ✅ Successful (200): {success_count}/5")
+        print(f"   ❌ Forbidden (403): {forbidden_count}/5")
+        print(f"   ⚠️  Other/Errors: {error_count}/5")
+        
+        # Check for intermittent issues
+        if forbidden_count > 0 and success_count > 0:
+            print(f"\n🚨 INTERMITTENT ISSUE DETECTED!")
+            print(f"   - Same endpoint returns both 200 and 403")
+            print(f"   - This suggests a race condition or token validation issue")
+            print(f"   - Frontend issue is likely due to this inconsistency")
+            intermittent_issue = True
+        elif forbidden_count > 0:
+            print(f"\n🚨 CONSISTENT 403 FORBIDDEN ISSUE!")
+            print(f"   - All requests are being rejected")
+            print(f"   - This suggests a permission or authentication issue")
+            intermittent_issue = False
+        else:
+            print(f"\n✅ NO 403 ISSUES DETECTED")
+            print(f"   - All requests successful")
+            print(f"   - Frontend issue may be resolved or environment-specific")
+            intermittent_issue = False
+        
+        # Test with different document types to see if it's type-specific
+        print(f"\n🔍 Testing different document types...")
+        
+        document_types = ['passport', 'cv', 'certificate', 'other']
+        type_results = {}
+        
+        for doc_type in document_types:
+            try:
+                type_data = {'document_type': doc_type}
+                type_files = {
+                    'file': (f'test_{doc_type}.pdf', test_file_content, 'application/pdf')
+                }
+                
+                response = requests.post(
+                    url,
+                    files=type_files,
+                    data=type_data,
+                    headers=headers
+                )
+                
+                type_results[doc_type] = response.status_code
+                
+                if response.status_code == 200:
+                    print(f"   ✅ {doc_type}: SUCCESS (200)")
+                elif response.status_code == 403:
+                    print(f"   ❌ {doc_type}: FORBIDDEN (403)")
+                else:
+                    print(f"   ⚠️  {doc_type}: {response.status_code}")
+                    
+            except Exception as e:
+                print(f"   ❌ {doc_type}: ERROR - {str(e)}")
+                type_results[doc_type] = 0
+        
+        # Check if issue is document-type specific
+        forbidden_types = [t for t, s in type_results.items() if s == 403]
+        if forbidden_types:
+            print(f"\n⚠️  Document types with 403 errors: {forbidden_types}")
+        
+        return success_count > 0 and forbidden_count == 0
 
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
