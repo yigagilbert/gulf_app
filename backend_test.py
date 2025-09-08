@@ -677,6 +677,10 @@ def main():
     print("-" * 40)
     jwt_success = tester.test_jwt_validation()
     
+    print("\n🔒 ADMIN CLIENT LIST FILTERING TESTS")
+    print("-" * 50)
+    admin_filtering_success = tester.test_admin_client_filtering()
+    
     print("\n🏢 GULF CONSULTANTS ADMIN CLIENT DETAILS TESTS")
     print("-" * 50)
     gulf_admin_success = tester.test_gulf_consultants_admin_client_details()
