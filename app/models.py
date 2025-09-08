@@ -12,12 +12,9 @@ class UserRole(enum.Enum):
 
 class ClientStatus(enum.Enum):
     new = "new"
-    under_review = "under_review"
     verified = "verified"
-    in_progress = "in_progress"
-    placed = "placed"
     traveled = "traveled"
-    inactive = "inactive"
+    returned = "returned"
 
 class DocumentType(enum.Enum):
     passport = "passport"
