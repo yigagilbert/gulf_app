@@ -231,7 +231,7 @@ export const AuthProvider = ({ children }) => {
     if (!initialized) {
       initializeAuth();
     }
-  }, [initialized]); // Only depend on initialized flag
+  }, [initialized, updateActivity, logout]); // Include all dependencies
 
   // Set up heartbeat to keep session alive
   useEffect(() => {
