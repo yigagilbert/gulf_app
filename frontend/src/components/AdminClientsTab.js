@@ -334,9 +334,9 @@ const AdminClientsTab = () => {
                         </button>
                         
                         <button
-                          onClick={async () => {
-                            await loadClientDocuments(client.id);
+                          onClick={() => {
                             setSelectedClient(client);
+                            setShowDocumentViewer(true);
                           }}
                           className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
                           title="View Documents"
