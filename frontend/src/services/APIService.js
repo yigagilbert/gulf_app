@@ -5,7 +5,7 @@
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'https://mobile-recruit.preview.emergentagent.com/api',
+  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'https://onboard-gulf.preview.emergentagent.com/api',
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
