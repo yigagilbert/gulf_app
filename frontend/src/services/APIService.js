@@ -1,14 +1,11 @@
-import { secureStorage } from '../utils/storage';  // Added for consolidated storage
-import { STORAGE_KEYS } from '../constants';  // Added for key consistency
-
 /**
- * Professional API Service for Job Placement System
- * Enhanced with better error handling, retry logic, request queuing, and security
+ * Professional API Service for Gulf Consultants Job Placement System
+ * Enhanced with robust session management and token handling
  */
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001',
+  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'https://mobile-recruit.preview.emergentagent.com',
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
