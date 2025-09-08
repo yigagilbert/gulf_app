@@ -421,6 +421,21 @@ const AdminClientsTab = () => {
         />
       )}
 
+      {/* Status Update Modal */}
+      {selectedClient && (
+        <AdminClientStatusUpdate
+          isOpen={showStatusUpdate}
+          onClose={() => {
+            setShowStatusUpdate(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          currentStatus={selectedClient.status}
+          onSuccess={handleStatusUpdated}
+        />
+      )}
+
       {/* PDF Viewer */}
       {selectedDocument && (
         <PDFViewer
