@@ -213,7 +213,7 @@ const AdminClientsTab = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">
-                    {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {statusLabels[status] || status}
                   </p>
                   <p className="text-2xl font-bold text-gray-900">{count}</p>
                 </div>
