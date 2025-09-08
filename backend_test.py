@@ -576,6 +576,10 @@ def main():
     print("-" * 40)
     jwt_success = tester.test_jwt_validation()
     
+    print("\n🏢 GULF CONSULTANTS ADMIN CLIENT DETAILS TESTS")
+    print("-" * 50)
+    gulf_admin_success = tester.test_gulf_consultants_admin_client_details()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
@@ -590,6 +594,7 @@ def main():
     print(f"   ✅ Profile Endpoints: {'PASS' if profile_success else 'FAIL'}")
     print(f"   ✅ Admin Endpoints: {'PASS' if admin_success else 'FAIL'}")
     print(f"   ✅ JWT Validation: {'PASS' if jwt_success else 'FAIL'}")
+    print(f"   ✅ Gulf Admin Client Details: {'PASS' if gulf_admin_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
