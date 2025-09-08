@@ -649,6 +649,215 @@ class JobPlacementAPITester:
         
         return success1 and success2
 
+    def test_admin_document_upload_permissions(self):
+        """Test admin document upload permissions - Focus on 403 Forbidden issue"""
+        print("\n📄 ADMIN DOCUMENT UPLOAD PERMISSIONS TESTS")
+        print("-" * 50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for document upload tests")
+            return False
+        
+        # Get client list first to find a valid client ID
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        success, clients_list = self.run_test(
+            "Get Clients for Document Upload Test",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success or not clients_list:
+            print("❌ Could not retrieve client list for document upload test")
+            return False
+        
+        # Test with specific client ID from review request
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        test_client_id = specific_client_id
+        
+        # Check if specific client exists, otherwise use first available
+        client_exists = any(client.get('id') == specific_client_id for client in clients_list)
+        if not client_exists and clients_list:
+            test_client_id = clients_list[0]['id']
+            print(f"ℹ️  Using available client ID: {test_client_id}")
+        else:
+            print(f"🔍 Testing with specific client ID: {test_client_id}")
+        
+        # Test 1: Admin authentication verification
+        print("🔍 Testing admin authentication for document upload...")
+        
+        # Create a simple test file content
+        test_file_content = b"This is a test PDF document content for admin upload testing."
+        
+        # Test with multipart/form-data (simulating file upload)
+        import requests
+        
+        url = f"{self.base_url}/admin/clients/{test_client_id}/documents/upload"
+        
+        # Prepare files and data for multipart upload
+        files = {
+            'file': ('test_document.pdf', test_file_content, 'application/pdf')
+        }
+        data = {
+            'document_type': 'passport'
+        }
+        
+        print(f"   URL: POST {url}")
+        print(f"   Client ID: {test_client_id}")
+        print(f"   Admin Token: {self.admin_token[:20]}...")
+        
+        try:
+            # Test admin document upload
+            response = requests.post(
+                url,
+                files=files,
+                data=data,
+                headers={'Authorization': f'Bearer {self.admin_token}'}
+            )
+            
+            print(f"   Response Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                print("✅ Admin document upload successful")
+                try:
+                    response_data = response.json()
+                    print(f"   Document ID: {response_data.get('id', 'N/A')}")
+                    print(f"   Document Type: {response_data.get('document_type', 'N/A')}")
+                    upload_success = True
+                except:
+                    print(f"   Response: {response.text}")
+                    upload_success = True
+            elif response.status_code == 403:
+                print("❌ CRITICAL: 403 Forbidden - Admin permission denied!")
+                try:
+                    error_data = response.json()
+                    print(f"   Error Detail: {error_data.get('detail', 'No detail provided')}")
+                except:
+                    print(f"   Error Response: {response.text}")
+                upload_success = False
+            elif response.status_code == 404:
+                print("⚠️  Client not found - trying with different client")
+                if clients_list and len(clients_list) > 1:
+                    # Try with second client
+                    alt_client_id = clients_list[1]['id']
+                    alt_url = f"{self.base_url}/admin/clients/{alt_client_id}/documents/upload"
+                    alt_response = requests.post(
+                        alt_url,
+                        files=files,
+                        data=data,
+                        headers={'Authorization': f'Bearer {self.admin_token}'}
+                    )
+                    print(f"   Alternative client test - Status: {alt_response.status_code}")
+                    upload_success = alt_response.status_code == 200
+                else:
+                    upload_success = False
+            else:
+                print(f"❌ Unexpected status code: {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Response: {response.text}")
+                upload_success = False
+                
+        except Exception as e:
+            print(f"❌ Request failed with error: {str(e)}")
+            upload_success = False
+        
+        # Test 2: Verify admin role and token validity
+        print("🔍 Testing admin role verification...")
+        
+        # Test admin profile access to verify token is valid
+        profile_success, profile_data = self.run_test(
+            "Admin Token Validation via Profile",
+            "GET",
+            "profile/me",
+            200,
+            headers=headers
+        )
+        
+        if profile_success:
+            print("✅ Admin token is valid and working")
+            if isinstance(profile_data, dict):
+                user_role = profile_data.get('role', 'Unknown')
+                print(f"   Admin Role: {user_role}")
+                if user_role.lower() in ['admin', 'super_admin']:
+                    print("✅ Admin role confirmed")
+                    role_valid = True
+                else:
+                    print(f"❌ Invalid admin role: {user_role}")
+                    role_valid = False
+            else:
+                role_valid = True  # Assume valid if we got 200
+        else:
+            print("❌ Admin token validation failed")
+            role_valid = False
+        
+        # Test 3: Test with invalid token to ensure endpoint security
+        print("🔍 Testing document upload with invalid token...")
+        
+        invalid_headers = {'Authorization': 'Bearer invalid_token_here'}
+        try:
+            invalid_response = requests.post(
+                url,
+                files=files,
+                data=data,
+                headers=invalid_headers
+            )
+            
+            if invalid_response.status_code == 401:
+                print("✅ Invalid token properly rejected (401)")
+                security_test = True
+            elif invalid_response.status_code == 403:
+                print("✅ Invalid token properly rejected (403)")
+                security_test = True
+            else:
+                print(f"⚠️  Unexpected response for invalid token: {invalid_response.status_code}")
+                security_test = False
+                
+        except Exception as e:
+            print(f"⚠️  Security test failed: {str(e)}")
+            security_test = False
+        
+        # Test 4: Test without token
+        print("🔍 Testing document upload without token...")
+        
+        try:
+            no_token_response = requests.post(
+                url,
+                files=files,
+                data=data
+            )
+            
+            if no_token_response.status_code in [401, 403]:
+                print("✅ No token properly rejected")
+                no_token_test = True
+            else:
+                print(f"⚠️  Unexpected response for no token: {no_token_response.status_code}")
+                no_token_test = False
+                
+        except Exception as e:
+            print(f"⚠️  No token test failed: {str(e)}")
+            no_token_test = False
+        
+        # Summary
+        print("\n📋 DOCUMENT UPLOAD PERMISSIONS TEST SUMMARY:")
+        print(f"   ✅ Admin Upload Success: {'PASS' if upload_success else 'FAIL'}")
+        print(f"   ✅ Admin Role Valid: {'PASS' if role_valid else 'FAIL'}")
+        print(f"   ✅ Security (Invalid Token): {'PASS' if security_test else 'FAIL'}")
+        print(f"   ✅ Security (No Token): {'PASS' if no_token_test else 'FAIL'}")
+        
+        # Critical issue detection
+        if not upload_success and role_valid:
+            print("\n🚨 CRITICAL ISSUE DETECTED:")
+            print("   - Admin has valid token and correct role")
+            print("   - But document upload is failing with 403 Forbidden")
+            print("   - This indicates a permission issue in the get_admin_user dependency")
+            print("   - or in the admin document upload endpoint implementation")
+        
+        return upload_success and role_valid and security_test and no_token_test
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://onboard-gulf.preview.emergentagent.com/api")
