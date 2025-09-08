@@ -27,7 +27,10 @@ def get_all_clients(
     db: Session = Depends(get_db)
 ):
     """Get all clients with optional filtering"""
-    query = db.query(ClientProfile)
+    # Join ClientProfile with User to filter by role
+    query = db.query(ClientProfile).join(User, ClientProfile.user_id == User.id).filter(
+        User.role == UserRole.client  # Only include users with client role
+    )
     
     if status:
         query = query.filter(ClientProfile.status == status)
