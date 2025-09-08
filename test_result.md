@@ -198,10 +198,22 @@ backend:
         agent: "testing"
         comment: "Admin document upload functionality tested extensively and working correctly. The /api/admin/clients/{client_id}/documents/upload endpoint is functioning properly with admin authentication. Tested with specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51 mentioned in review request. All document upload requests successful (200 OK). The get_admin_user dependency is working correctly. JWT token validation properly rejects invalid/missing tokens. Multiple consecutive requests all successful - no intermittent 403 Forbidden issues detected. Tested with different document types (passport, cv, certificate, other) - all working. The 403 Forbidden issue mentioned in the review request could not be reproduced and appears to be either already resolved, environment-specific, or related to frontend token handling rather than backend permissions."
 
+  - task: "Gulf Consultants Client Status Management System"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Gulf Consultants client status management system tested comprehensively and working correctly. All four status values (new, verified, traveled, returned) are properly supported. Admin status update endpoint /api/admin/clients/{client_id}/status is functioning correctly with proper validation, error handling, and audit trail. Status updates work with proper admin permissions. Client list correctly returns updated statuses. Fixed critical schema mismatch between models.py and schemas.py that was causing 500 errors when using 'returned' status. All status workflow transitions tested successfully: new → verified → traveled → returned. Invalid status rejection working properly. Non-admin access properly restricted. Client list displays updated statuses correctly."
+
 metadata:
   created_by: "testing_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "1.1"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
@@ -219,6 +231,8 @@ agent_communication:
     message: "ADMIN CLIENT LIST FILTERING TEST COMPLETED: The filtering is working correctly. Admin user (admin@example.com) with role 'super_admin' is properly excluded from the client list. The /api/admin/clients endpoint correctly filters by User.role == 'client'. Found one user 'admincreated@example.com' with admin-like email but this is a legitimate client created via admin client creation endpoint with role 'client'. The filtering logic is sound and working as expected."
   - agent: "testing"
     message: "ADMIN DOCUMENT UPLOAD PERMISSIONS TEST COMPLETED: The 403 Forbidden issue mentioned in the review request could NOT be reproduced. All admin document upload requests to /api/admin/clients/{client_id}/documents/upload are successful (200 OK). Tested extensively with specific client ID a434d812-1c6a-4e3d-945a-8153c7088c51. Admin authentication via get_admin_user dependency is working correctly. JWT token validation properly rejects invalid tokens. Multiple consecutive requests all successful - no intermittent issues detected. The backend API is functioning correctly for admin document uploads. The 403 Forbidden issue appears to be either already resolved, environment-specific, or related to frontend token handling rather than backend permissions."
+  - agent: "testing"
+    message: "GULF CONSULTANTS CLIENT STATUS MANAGEMENT SYSTEM TEST COMPLETED: The status management system is working correctly after fixing a critical schema mismatch. All four status values (new, verified, traveled, returned) are properly supported. The admin status update endpoint /api/admin/clients/{client_id}/status is functioning correctly with proper validation, error handling, and audit trail information. Status updates work with proper admin permissions and non-admin access is properly restricted. Client list correctly returns updated statuses. Fixed critical issue where schemas.py ClientStatusEnum was missing 'returned' status causing 500 Internal Server Error. All status workflow transitions tested successfully. Invalid status rejection working properly. The system now fully supports the Gulf Consultants status workflow requirements."
 ```
 
 ## Conclusion
