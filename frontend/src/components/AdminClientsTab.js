@@ -24,6 +24,7 @@ const AdminClientsTab = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [showPDFViewer, setShowPDFViewer] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [clientDocuments, setClientDocuments] = useState({});
