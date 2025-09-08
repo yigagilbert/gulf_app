@@ -443,6 +443,107 @@ class JobPlacementAPITester:
 
         return success
 
+    def test_admin_client_filtering(self):
+        """Test admin client list filtering to ensure admin users are excluded"""
+        print("\n🔒 ADMIN CLIENT LIST FILTERING TESTS")
+        print("-" * 50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for admin client filtering tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Test 1: Get client list and verify admin exclusion
+        print("🔍 Testing admin client list filtering...")
+        success1, clients_list = self.run_test(
+            "Admin Client List - Filtering Test",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success1:
+            print("❌ Admin client list endpoint failed")
+            return False
+            
+        # Validate client list structure
+        if not isinstance(clients_list, list):
+            print(f"❌ Expected list, got {type(clients_list)}")
+            return False
+            
+        print(f"✅ Client list endpoint working - Found {len(clients_list)} clients")
+        
+        # Test 2: Verify admin users are NOT in the client list
+        print("🔍 Checking if admin users are excluded from client list...")
+        admin_emails_found = []
+        client_emails = []
+        
+        for client in clients_list:
+            user_email = client.get('user_email', '')
+            client_emails.append(user_email)
+            
+            # Check if this is an admin email (admin@example.com or similar admin patterns)
+            if 'admin' in user_email.lower() or user_email == 'admin@example.com':
+                admin_emails_found.append(user_email)
+        
+        if admin_emails_found:
+            print(f"❌ CRITICAL: Admin users found in client list: {admin_emails_found}")
+            print("   This violates the filtering requirement!")
+            return False
+        else:
+            print("✅ PASS: No admin users found in client list - filtering working correctly")
+        
+        # Test 3: Verify legitimate clients are still returned
+        print("🔍 Verifying legitimate clients are properly returned...")
+        if len(clients_list) == 0:
+            print("⚠️  WARNING: No clients found in the list - this might indicate over-filtering")
+        else:
+            print(f"✅ Found {len(clients_list)} legitimate clients in the list")
+            
+            # Sample a few client emails to verify they look legitimate
+            sample_clients = clients_list[:3]  # First 3 clients
+            for i, client in enumerate(sample_clients):
+                email = client.get('user_email', 'N/A')
+                name = f"{client.get('first_name', '')} {client.get('last_name', '')}"
+                print(f"   Client {i+1}: {email} - {name.strip()}")
+        
+        # Test 4: Verify client count accuracy
+        print("🔍 Verifying client count accuracy...")
+        total_clients = len(clients_list)
+        print(f"✅ Total client count: {total_clients} (excluding admin users)")
+        
+        # Test 5: Verify all returned clients have proper structure
+        print("🔍 Validating client data structure...")
+        structure_valid = True
+        
+        for i, client in enumerate(clients_list):
+            required_fields = ['id', 'user_email', 'first_name', 'last_name', 'status', 'created_at']
+            missing_fields = [field for field in required_fields if field not in client]
+            
+            if missing_fields:
+                print(f"❌ Client {i+1} missing fields: {missing_fields}")
+                structure_valid = False
+        
+        if structure_valid:
+            print("✅ All clients have proper data structure")
+        
+        # Test 6: Specific check for admin@example.com exclusion
+        print("🔍 Specific check: Ensuring admin@example.com is NOT in client list...")
+        admin_email_in_list = any(
+            client.get('user_email', '').lower() == 'admin@example.com' 
+            for client in clients_list
+        )
+        
+        if admin_email_in_list:
+            print("❌ CRITICAL FAILURE: admin@example.com found in client list!")
+            return False
+        else:
+            print("✅ PASS: admin@example.com correctly excluded from client list")
+        
+        return success1 and structure_valid and not admin_emails_found and not admin_email_in_list
+
     def test_gulf_consultants_admin_client_details(self):
         """Test Gulf Consultants admin client details functionality specifically"""
         print("\n🏢 GULF CONSULTANTS ADMIN CLIENT DETAILS TESTS")
