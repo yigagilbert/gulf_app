@@ -381,6 +381,19 @@ const AdminClientsTab = () => {
         />
       )}
 
+      {/* Document Viewer Modal */}
+      {selectedClient && (
+        <AdminClientDocuments
+          isOpen={showDocumentViewer}
+          onClose={() => {
+            setShowDocumentViewer(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+        />
+      )}
+
       {/* PDF Viewer */}
       {selectedDocument && (
         <PDFViewer
