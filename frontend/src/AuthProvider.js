@@ -120,6 +120,32 @@ export const AuthProvider = ({ children }) => {
   const activityTimeoutRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
 
+  const logout = useCallback(() => {
+    try {
+      console.log('Logging out user...');
+      
+      // Clear timeouts and intervals
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+      
+      // Clear storage and API token
+      StorageManager.clearAuthData();
+      APIService.clearAuthToken();
+      
+      // Reset state
+      setUser(null);
+      setError(null);
+      
+      console.log('Logout completed');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }, []);
+
   // Track user activity
   const updateActivity = useCallback(() => {
     StorageManager.updateLastActivity();
