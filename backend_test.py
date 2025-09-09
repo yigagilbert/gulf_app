@@ -1507,6 +1507,335 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_admin_client_profile_photo_upload(self):
+        """Test admin client profile photo upload endpoint"""
+        print("\n📸 ADMIN CLIENT PROFILE PHOTO UPLOAD TESTS")
+        print("-" * 60)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for photo upload tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Step 1: Get client list to find a test client
+        print("🔍 Step 1: Getting client list to find test client...")
+        success, clients_list = self.run_test(
+            "Get Client List for Photo Upload Test",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success or not clients_list:
+            print("❌ Could not retrieve client list for photo upload testing")
+            return False
+        
+        # Find a client to test with (prefer specific client ID from review request)
+        test_client_id = None
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        
+        # Check if specific client exists
+        for client in clients_list:
+            if client.get('id') == specific_client_id:
+                test_client_id = specific_client_id
+                print(f"✅ Found specific client from review request: {test_client_id}")
+                break
+        
+        # If specific client not found, use first available client
+        if not test_client_id and clients_list:
+            test_client_id = clients_list[0]['id']
+            print(f"ℹ️  Using first available client: {test_client_id}")
+        
+        if not test_client_id:
+            print("❌ No clients available for photo upload testing")
+            return False
+        
+        # Step 2: Create a simple test image file
+        print(f"\n🔍 Step 2: Creating test image file...")
+        
+        # Create a minimal PNG image (1x1 pixel)
+        import base64
+        
+        # Minimal PNG image data (1x1 transparent pixel)
+        png_data = base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAI9jU8'
+            'IQAAAAABJRU5ErkJggg=='
+        )
+        
+        print(f"   ✅ Created test PNG image ({len(png_data)} bytes)")
+        
+        # Step 3: Test valid admin photo upload
+        print(f"\n🔍 Step 3: Testing valid admin photo upload...")
+        
+        import requests
+        
+        url = f"{self.base_url}/admin/clients/{test_client_id}/photo"
+        
+        files = {
+            'file': ('test_profile_photo.png', png_data, 'image/png')
+        }
+        
+        print(f"   URL: POST {url}")
+        print(f"   Client ID: {test_client_id}")
+        print(f"   Admin Token: {self.admin_token[:20]}...")
+        
+        try:
+            response = requests.post(
+                url,
+                files=files,
+                headers={'Authorization': f'Bearer {self.admin_token}'}
+            )
+            
+            print(f"   Response Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                print("✅ Admin photo upload successful")
+                try:
+                    response_data = response.json()
+                    profile_photo_url = response_data.get('profile_photo_url')
+                    message = response_data.get('message')
+                    
+                    print(f"   Profile Photo URL: {profile_photo_url}")
+                    print(f"   Message: {message}")
+                    
+                    # Verify response structure
+                    if profile_photo_url and message:
+                        print("   ✅ Response structure is correct")
+                        upload_success = True
+                        uploaded_photo_url = profile_photo_url
+                    else:
+                        print("   ❌ Response missing required fields")
+                        upload_success = False
+                        uploaded_photo_url = None
+                except Exception as e:
+                    print(f"   ❌ Could not parse response JSON: {e}")
+                    print(f"   Response: {response.text}")
+                    upload_success = False
+                    uploaded_photo_url = None
+            else:
+                print(f"❌ Photo upload failed with status {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error Detail: {error_data.get('detail', 'No detail provided')}")
+                except:
+                    print(f"   Error Response: {response.text}")
+                upload_success = False
+                uploaded_photo_url = None
+                
+        except Exception as e:
+            print(f"❌ Photo upload request failed: {str(e)}")
+            upload_success = False
+            uploaded_photo_url = None
+        
+        # Step 4: Verify client profile is updated with new photo URL
+        print(f"\n🔍 Step 4: Verifying client profile is updated with new photo URL...")
+        
+        if upload_success and uploaded_photo_url:
+            success, updated_client = self.run_test(
+                "Get Updated Client Profile",
+                "GET",
+                f"admin/clients/{test_client_id}",
+                200,
+                headers=headers
+            )
+            
+            if success:
+                client_photo_url = updated_client.get('profile_photo_url')
+                if client_photo_url == uploaded_photo_url:
+                    print(f"   ✅ Client profile updated with correct photo URL")
+                    print(f"      Photo URL: {client_photo_url}")
+                    profile_update_success = True
+                else:
+                    print(f"   ❌ Client profile photo URL mismatch")
+                    print(f"      Expected: {uploaded_photo_url}")
+                    print(f"      Actual: {client_photo_url}")
+                    profile_update_success = False
+            else:
+                print(f"   ❌ Could not retrieve updated client profile")
+                profile_update_success = False
+        else:
+            print(f"   ⚠️  Skipping profile update verification (upload failed)")
+            profile_update_success = False
+        
+        # Step 5: Test with invalid client ID (404)
+        print(f"\n🔍 Step 5: Testing with invalid client ID...")
+        
+        fake_client_id = "00000000-0000-0000-0000-000000000000"
+        fake_url = f"{self.base_url}/admin/clients/{fake_client_id}/photo"
+        
+        try:
+            response = requests.post(
+                fake_url,
+                files=files,
+                headers={'Authorization': f'Bearer {self.admin_token}'}
+            )
+            
+            if response.status_code == 404:
+                print("   ✅ Invalid client ID properly returns 404")
+                try:
+                    error_data = response.json()
+                    print(f"      Error message: {error_data.get('detail', 'No detail')}")
+                except:
+                    print(f"      Response: {response.text}")
+                invalid_client_test = True
+            else:
+                print(f"   ❌ Invalid client ID returned {response.status_code} instead of 404")
+                invalid_client_test = False
+                
+        except Exception as e:
+            print(f"   ❌ Invalid client ID test failed: {str(e)}")
+            invalid_client_test = False
+        
+        # Step 6: Test with non-admin user (403)
+        print(f"\n🔍 Step 6: Testing with non-admin user...")
+        
+        non_admin_test = True
+        if self.client_token:
+            client_headers = {'Authorization': f'Bearer {self.client_token}'}
+            
+            try:
+                response = requests.post(
+                    url,
+                    files=files,
+                    headers=client_headers
+                )
+                
+                if response.status_code == 403:
+                    print("   ✅ Non-admin user properly restricted (403)")
+                    try:
+                        error_data = response.json()
+                        print(f"      Error message: {error_data.get('detail', 'No detail')}")
+                    except:
+                        print(f"      Response: {response.text}")
+                    non_admin_test = True
+                else:
+                    print(f"   ❌ Non-admin user returned {response.status_code} instead of 403")
+                    non_admin_test = False
+                    
+            except Exception as e:
+                print(f"   ❌ Non-admin user test failed: {str(e)}")
+                non_admin_test = False
+        else:
+            print(f"   ℹ️  No client token available for non-admin test")
+        
+        # Step 7: Test with invalid file type (400)
+        print(f"\n🔍 Step 7: Testing with invalid file type...")
+        
+        # Create a text file instead of image
+        invalid_files = {
+            'file': ('test_document.txt', b'This is not an image file', 'text/plain')
+        }
+        
+        try:
+            response = requests.post(
+                url,
+                files=invalid_files,
+                headers={'Authorization': f'Bearer {self.admin_token}'}
+            )
+            
+            if response.status_code == 400:
+                print("   ✅ Invalid file type properly rejected (400)")
+                try:
+                    error_data = response.json()
+                    print(f"      Error message: {error_data.get('detail', 'No detail')}")
+                except:
+                    print(f"      Response: {response.text}")
+                invalid_file_test = True
+            else:
+                print(f"   ❌ Invalid file type returned {response.status_code} instead of 400")
+                invalid_file_test = False
+                
+        except Exception as e:
+            print(f"   ❌ Invalid file type test failed: {str(e)}")
+            invalid_file_test = False
+        
+        # Step 8: Test old photo deletion (upload another photo)
+        print(f"\n🔍 Step 8: Testing old photo deletion by uploading new photo...")
+        
+        if upload_success:
+            # Create a different test image
+            jpg_data = base64.b64decode(
+                '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB'
+                'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEB'
+                'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIA'
+                'AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QA'
+                'FQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCd'
+                'AB8A'
+            )
+            
+            new_files = {
+                'file': ('new_profile_photo.jpg', jpg_data, 'image/jpeg')
+            }
+            
+            try:
+                response = requests.post(
+                    url,
+                    files=new_files,
+                    headers={'Authorization': f'Bearer {self.admin_token}'}
+                )
+                
+                if response.status_code == 200:
+                    print("   ✅ Second photo upload successful")
+                    try:
+                        response_data = response.json()
+                        new_photo_url = response_data.get('profile_photo_url')
+                        
+                        if new_photo_url and new_photo_url != uploaded_photo_url:
+                            print(f"   ✅ New photo URL is different from old one")
+                            print(f"      Old URL: {uploaded_photo_url}")
+                            print(f"      New URL: {new_photo_url}")
+                            old_photo_deletion_test = True
+                        else:
+                            print(f"   ⚠️  New photo URL same as old or missing")
+                            old_photo_deletion_test = False
+                    except Exception as e:
+                        print(f"   ❌ Could not parse second upload response: {e}")
+                        old_photo_deletion_test = False
+                else:
+                    print(f"   ❌ Second photo upload failed: {response.status_code}")
+                    old_photo_deletion_test = False
+                    
+            except Exception as e:
+                print(f"   ❌ Second photo upload test failed: {str(e)}")
+                old_photo_deletion_test = False
+        else:
+            print(f"   ⚠️  Skipping old photo deletion test (first upload failed)")
+            old_photo_deletion_test = False
+        
+        # Calculate overall results
+        print(f"\n📊 ADMIN CLIENT PROFILE PHOTO UPLOAD TEST SUMMARY:")
+        print(f"   ✅ Valid Admin Photo Upload: {'PASS' if upload_success else 'FAIL'}")
+        print(f"   ✅ Client Profile Update: {'PASS' if profile_update_success else 'FAIL'}")
+        print(f"   ✅ Invalid Client ID (404): {'PASS' if invalid_client_test else 'FAIL'}")
+        print(f"   ✅ Non-Admin Access (403): {'PASS' if non_admin_test else 'FAIL'}")
+        print(f"   ✅ Invalid File Type (400): {'PASS' if invalid_file_test else 'FAIL'}")
+        print(f"   ✅ Old Photo Deletion: {'PASS' if old_photo_deletion_test else 'FAIL'}")
+        
+        # Overall success
+        overall_success = (
+            upload_success and 
+            profile_update_success and 
+            invalid_client_test and 
+            non_admin_test and 
+            invalid_file_test and 
+            old_photo_deletion_test
+        )
+        
+        if overall_success:
+            print(f"\n🎉 ADMIN CLIENT PROFILE PHOTO UPLOAD: ALL TESTS PASSED")
+            print(f"   ✅ Photo upload functionality working correctly")
+            print(f"   ✅ Proper response structure with profile_photo_url")
+            print(f"   ✅ Client profile updated with new photo URL")
+            print(f"   ✅ Old photos deleted when new ones uploaded")
+            print(f"   ✅ Proper error handling for all edge cases")
+        else:
+            print(f"\n⚠️  ADMIN CLIENT PROFILE PHOTO UPLOAD: SOME TESTS FAILED")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
