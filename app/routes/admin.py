@@ -6,16 +6,52 @@ import uuid
 import os
 import shutil
 from pathlib import Path
-from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage
+from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage, EducationRecord, EmploymentRecord
 from app.schemas import (
     UserCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
-    AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate
+    AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate,
+    EducationRecordCreate, EducationRecordResponse, EmploymentRecordCreate, EmploymentRecordResponse
 )
 from app.database import get_db
 from app.dependencies import get_admin_user
 from app.utils import get_password_hash, create_access_token
+import random
+import string
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+def generate_serial_number(db: Session) -> str:
+    """Generate unique serial number for client registration"""
+    while True:
+        # Format: SN-YYYYMMDD-XXXX (e.g., SN-20250109-0001)
+        date_part = datetime.now().strftime("%Y%m%d")
+        # Get count of clients registered today
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_count = db.query(ClientProfile).filter(
+            ClientProfile.registration_date >= today_start
+        ).count() + 1
+        
+        serial_number = f"SN-{date_part}-{today_count:04d}"
+        
+        # Check if already exists (unlikely but safe)
+        existing = db.query(ClientProfile).filter(ClientProfile.serial_number == serial_number).first()
+        if not existing:
+            return serial_number
+
+def generate_registration_number(db: Session) -> str:
+    """Generate unique registration number for client"""
+    while True:
+        # Format: REG-YYYY-XXXXXXX (e.g., REG-2025-0001234)
+        year = datetime.now().year
+        # Get total count of all clients for sequential numbering
+        total_count = db.query(ClientProfile).count() + 1
+        
+        registration_number = f"REG-{year}-{total_count:07d}"
+        
+        # Check if already exists
+        existing = db.query(ClientProfile).filter(ClientProfile.registration_number == registration_number).first()
+        if not existing:
+            return registration_number
 
 @router.get("/clients", response_model=List[AdminClientListResponse])
 def get_all_clients(
