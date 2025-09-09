@@ -43,13 +43,37 @@ class UserCreate(BaseModel):
             raise ValueError('Password must be at least 8 characters long')
         return v
 
+class ClientCreate(BaseModel):
+    first_name: str
+    last_name: str
+    phone_number: str
+    password: str
+    email: Optional[EmailStr] = None  # Optional for clients
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 7:
+            raise ValueError('Password must be more than 6 characters long')
+        return v
+    
+    @validator('phone_number')
+    def validate_phone_number(cls, v):
+        if not v or len(v.strip()) < 10:
+            raise ValueError('Phone number must be at least 10 characters long')
+        return v.strip()
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class ClientLogin(BaseModel):
+    phone_number: str
+    password: str
+
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     role: UserRoleEnum
     is_active: bool
     
