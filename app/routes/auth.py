@@ -67,7 +67,7 @@ def register_client(client_data: ClientCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
-@router.post("/register/admin", response_model=UserResponse)
+@router.post("/register/admin")
 def register_admin(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new admin using email (kept for admin accounts)"""
     if db.query(User).filter(User.email == user_data.email).first():
@@ -86,13 +86,20 @@ def register_admin(user_data: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
         
-        return UserResponse(
-            id=user.id,
-            email=user.email,
-            phone_number=user.phone_number,
-            role=user.role,
-            is_active=user.is_active
-        )
+        # Create access token for immediate login
+        access_token = create_access_token(data={"sub": user.id})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "role": user.role,
+                "is_active": user.is_active
+            }
+        }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
