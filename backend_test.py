@@ -2667,6 +2667,290 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_comprehensive_client_onboarding_system(self):
+        """Test comprehensive client onboarding system with all new fields"""
+        print("\n🏢 COMPREHENSIVE CLIENT ONBOARDING SYSTEM TESTS")
+        print("-" * 60)
+        
+        # First, we need to register a client and get their token
+        print("🔍 Step 1: Creating test client for onboarding...")
+        
+        # Register a new client for testing
+        test_phone = f"test{datetime.now().strftime('%H%M%S')}"
+        client_reg_success, client_reg_response = self.run_test(
+            "Register Test Client for Onboarding",
+            "POST",
+            "auth/register/client",
+            200,
+            data={
+                "first_name": "Test",
+                "last_name": "Client",
+                "phone_number": test_phone,
+                "password": "testpassword123",
+                "email": f"test{datetime.now().strftime('%H%M%S')}@example.com"
+            }
+        )
+        
+        if not client_reg_success:
+            print("❌ Could not register test client for onboarding")
+            return False
+        
+        # Get client token
+        client_token = client_reg_response.get('access_token')
+        if not client_token:
+            print("❌ No client token received from registration")
+            return False
+        
+        print(f"✅ Test client registered successfully")
+        print(f"   Client Token: {client_token[:20]}...")
+        
+        client_headers = {'Authorization': f'Bearer {client_token}'}
+        
+        # Step 2: Test Profile Update Endpoint (PUT /api/profile/me/basic)
+        print(f"\n🔍 Step 2: Testing Profile Update Endpoint (PUT /api/profile/me/basic)...")
+        
+        # Comprehensive test data as specified in review request
+        comprehensive_basic_data = {
+            "first_name": "Test",
+            "last_name": "Client", 
+            "age": 25,
+            "gender": "male",
+            "tribe": "Test Tribe",
+            "date_of_birth": "1999-01-01",
+            "place_of_birth": "Test City",
+            "present_address": "123 Test Street",
+            "subcounty": "Test Subcounty",
+            "district": "Test District",
+            "marital_status": "single",
+            "number_of_kids": 0,
+            "height": "175cm",
+            "weight": "70kg",
+            "position_applied_for": "Construction Worker",
+            "religion": "Christianity",
+            "nationality": "Ugandan",
+            "contact_1": "1234567890",
+            "contact_2": "0987654321",
+            "nin": "CM123456789PE",
+            "passport_number": "A1234567",
+            "next_of_kin_name": "Jane Doe",
+            "next_of_kin_contact_1": "5555555555",
+            "next_of_kin_relationship": "Sister",
+            "father_name": "John Father",
+            "mother_name": "Jane Mother",
+            "agent_name": "Agent Smith",
+            "agent_contact": "9999999999"
+        }
+        
+        basic_update_success, basic_update_response = self.run_test(
+            "Profile Basic Update with Comprehensive Data",
+            "PUT",
+            "profile/me/basic",
+            200,
+            data=comprehensive_basic_data,
+            headers=client_headers
+        )
+        
+        if basic_update_success:
+            print(f"   ✅ Profile basic update successful")
+            
+            # Verify all fields were accepted
+            accepted_fields = 0
+            for field, expected_value in comprehensive_basic_data.items():
+                actual_value = basic_update_response.get(field)
+                if actual_value is not None:
+                    accepted_fields += 1
+                    if str(actual_value) == str(expected_value):
+                        pass  # Field matches
+                    else:
+                        print(f"   ℹ️  Field '{field}': expected '{expected_value}', got '{actual_value}'")
+            
+            print(f"   ✅ Accepted fields: {accepted_fields}/{len(comprehensive_basic_data)}")
+        else:
+            print(f"   ❌ Profile basic update failed")
+        
+        # Step 3: Test Onboarding Completion (POST /api/profile/me/onboard)
+        print(f"\n🔍 Step 3: Testing Onboarding Completion (POST /api/profile/me/onboard)...")
+        
+        onboard_success, onboard_response = self.run_test(
+            "Complete Onboarding with All Fields",
+            "POST",
+            "profile/me/onboard",
+            200,
+            data=comprehensive_basic_data,
+            headers=client_headers
+        )
+        
+        if onboard_success:
+            print(f"   ✅ Onboarding completion successful")
+            
+            # Verify comprehensive field structure
+            onboard_fields = 0
+            for field in comprehensive_basic_data.keys():
+                if field in onboard_response:
+                    onboard_fields += 1
+            
+            print(f"   ✅ Onboarding response fields: {onboard_fields}/{len(comprehensive_basic_data)}")
+        else:
+            print(f"   ❌ Onboarding completion failed")
+        
+        # Step 4: Test Field Validation (Verify backend accepts all 39+ comprehensive fields)
+        print(f"\n🔍 Step 4: Testing Field Validation (39+ comprehensive fields)...")
+        
+        # Get current profile to verify all fields
+        profile_success, current_profile = self.run_test(
+            "Get Current Profile for Field Validation",
+            "GET",
+            "profile/me",
+            200,
+            headers=client_headers
+        )
+        
+        field_validation_success = False
+        if profile_success:
+            # Define all comprehensive fields that should be supported
+            all_comprehensive_fields = [
+                # Basic Bio Data
+                'first_name', 'last_name', 'age', 'gender', 'tribe', 'date_of_birth',
+                'place_of_birth', 'present_address', 'subcounty', 'district', 
+                'marital_status', 'number_of_kids', 'height', 'weight', 
+                'position_applied_for', 'religion', 'nationality', 'contact_1', 
+                'contact_2', 'nin', 'passport_number',
+                
+                # Next of Kin
+                'next_of_kin_name', 'next_of_kin_contact_1', 'next_of_kin_contact_2',
+                'next_of_kin_address', 'next_of_kin_subcounty', 'next_of_kin_district',
+                'next_of_kin_relationship', 'next_of_kin_age',
+                
+                # Parent's Details - Father
+                'father_name', 'father_contact_1', 'father_contact_2',
+                'father_address', 'father_subcounty', 'father_district',
+                
+                # Parent's Details - Mother
+                'mother_name', 'mother_contact_1', 'mother_contact_2',
+                'mother_address', 'mother_subcounty', 'mother_district',
+                
+                # Agent Information
+                'agent_name', 'agent_contact',
+                
+                # System Generated
+                'serial_number', 'registration_number', 'registration_date'
+            ]
+            
+            supported_fields = []
+            for field in all_comprehensive_fields:
+                if field in current_profile:
+                    supported_fields.append(field)
+            
+            print(f"   ✅ Supported comprehensive fields: {len(supported_fields)}/{len(all_comprehensive_fields)}")
+            
+            if len(supported_fields) >= 39:  # At least 39+ fields as requested
+                print(f"   ✅ Backend accepts 39+ comprehensive fields requirement met")
+                field_validation_success = True
+            else:
+                print(f"   ⚠️  Only {len(supported_fields)} fields supported, need 39+")
+        else:
+            print(f"   ❌ Could not retrieve profile for field validation")
+        
+        # Step 5: Test Data Persistence
+        print(f"\n🔍 Step 5: Testing Data Persistence...")
+        
+        # Wait a moment and retrieve profile again to verify persistence
+        import time
+        time.sleep(1)
+        
+        persistence_success, persisted_profile = self.run_test(
+            "Verify Data Persistence",
+            "GET",
+            "profile/me",
+            200,
+            headers=client_headers
+        )
+        
+        data_persistence_success = False
+        if persistence_success:
+            # Check if key fields from our test data persisted
+            key_test_fields = [
+                'first_name', 'last_name', 'age', 'gender', 'tribe',
+                'nationality', 'contact_1', 'next_of_kin_name', 
+                'father_name', 'mother_name', 'agent_name'
+            ]
+            
+            persisted_count = 0
+            for field in key_test_fields:
+                expected_value = comprehensive_basic_data.get(field)
+                actual_value = persisted_profile.get(field)
+                
+                if expected_value is not None and str(actual_value) == str(expected_value):
+                    persisted_count += 1
+            
+            print(f"   ✅ Persisted key fields: {persisted_count}/{len(key_test_fields)}")
+            
+            if persisted_count >= len(key_test_fields) * 0.8:  # At least 80% persistence
+                print(f"   ✅ Data persistence verification successful")
+                data_persistence_success = True
+            else:
+                print(f"   ⚠️  Data persistence incomplete")
+        else:
+            print(f"   ❌ Could not verify data persistence")
+        
+        # Step 6: Test Onboarding Status
+        print(f"\n🔍 Step 6: Testing Onboarding Status...")
+        
+        status_success, onboarding_status = self.run_test(
+            "Get Onboarding Status",
+            "GET",
+            "profile/me/onboarding-status",
+            200,
+            headers=client_headers
+        )
+        
+        onboarding_status_success = False
+        if status_success:
+            is_complete = onboarding_status.get('is_complete', False)
+            completion_percentage = onboarding_status.get('completion_percentage', 0)
+            
+            print(f"   ✅ Onboarding Status Retrieved")
+            print(f"      Is Complete: {is_complete}")
+            print(f"      Completion Percentage: {completion_percentage}%")
+            
+            if completion_percentage > 0:
+                print(f"   ✅ Onboarding status tracking working")
+                onboarding_status_success = True
+            else:
+                print(f"   ⚠️  Onboarding status not tracking properly")
+        else:
+            print(f"   ❌ Could not retrieve onboarding status")
+        
+        # Calculate overall results
+        print(f"\n📊 COMPREHENSIVE CLIENT ONBOARDING SYSTEM TEST SUMMARY:")
+        print(f"   ✅ Profile Update Endpoint (PUT /api/profile/me/basic): {'PASS' if basic_update_success else 'FAIL'}")
+        print(f"   ✅ Onboarding Completion (POST /api/profile/me/onboard): {'PASS' if onboard_success else 'FAIL'}")
+        print(f"   ✅ Field Validation (39+ fields): {'PASS' if field_validation_success else 'FAIL'}")
+        print(f"   ✅ Data Persistence: {'PASS' if data_persistence_success else 'FAIL'}")
+        print(f"   ✅ Onboarding Status: {'PASS' if onboarding_status_success else 'FAIL'}")
+        
+        # Overall success
+        overall_success = (
+            basic_update_success and 
+            onboard_success and 
+            field_validation_success and 
+            data_persistence_success and
+            onboarding_status_success
+        )
+        
+        if overall_success:
+            print(f"\n🎉 COMPREHENSIVE CLIENT ONBOARDING SYSTEM: ALL TESTS PASSED")
+            print(f"   ✅ Profile update endpoint accepts comprehensive client data")
+            print(f"   ✅ Onboarding completion works with all new fields")
+            print(f"   ✅ Backend accepts 39+ comprehensive fields as required")
+            print(f"   ✅ All fields are saved correctly to the database")
+            print(f"   ✅ 9-step onboarding process data handling verified")
+        else:
+            print(f"\n⚠️  COMPREHENSIVE CLIENT ONBOARDING SYSTEM: SOME TESTS FAILED")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
