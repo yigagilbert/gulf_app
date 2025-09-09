@@ -36,10 +36,24 @@ const ClientChatWidget = () => {
   // Set default admin for clients
   useEffect(() => {
     if (!isAdmin && open && !selectedAdmin) {
-      // For clients, find the first admin user (this could be improved to select the best admin)
-      setSelectedAdmin('868730db-3023-477c-91c0-289a9bf1e63e'); // Default admin ID
+      loadAvailableAdmins();
     }
   }, [isAdmin, open, selectedAdmin]);
+
+  const loadAvailableAdmins = async () => {
+    try {
+      const admins = await APIService.getAvailableAdmins();
+      setAdminList(admins);
+      
+      // Select the first available admin
+      if (admins && admins.length > 0) {
+        setSelectedAdmin(admins[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load available admins:', error);
+      // Fallback: still try to use a basic admin lookup
+    }
+  };
 
   const loadChatHistory = async () => {
     if (!selectedAdmin) return;
