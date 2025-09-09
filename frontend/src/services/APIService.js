@@ -409,6 +409,10 @@ class APIServiceClass {
     return this.request(`/chat/history?with_user_id=${userId}`);
   }
 
+  async getAvailableAdmins() {
+    return this.request('/chat/admins');
+  }
+
   /**
    * Admin endpoints
    */
