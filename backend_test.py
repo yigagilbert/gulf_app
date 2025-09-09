@@ -3775,6 +3775,10 @@ def main():
     print("-" * 70)
     chat_system_success = tester.test_comprehensive_chat_system()
     
+    print("\n💼 COMPREHENSIVE JOB MANAGEMENT SYSTEM TESTS")
+    print("-" * 70)
+    job_management_success = tester.test_comprehensive_job_management_system()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
