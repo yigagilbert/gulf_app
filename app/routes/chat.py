@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import ChatMessage, User
+from app.models import ChatMessage, User, UserRole
 from app.schemas import ChatMessageCreate, ChatMessageResponse
 from app.database import get_db
 from app.dependencies import get_current_user, get_admin_user
@@ -38,6 +38,27 @@ def get_chat_history(
         ((ChatMessage.sender_id == with_user_id) & (ChatMessage.receiver_id == current_user.id))
     ).order_by(ChatMessage.sent_at.asc()).all()
     return messages
+
+@router.get("/admins")
+def get_available_admins(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get list of available admins for clients to chat with"""
+    admins = db.query(User).filter(
+        User.role.in_([UserRole.admin, UserRole.super_admin]),
+        User.is_active == True
+    ).all()
+    
+    return [
+        {
+            "id": admin.id,
+            "email": admin.email,
+            "role": admin.role,
+            "name": f"Admin ({admin.email.split('@')[0] if admin.email else 'Unknown'})"
+        }
+        for admin in admins
+    ]
 
 @router.get("/admin/inbox", response_model=list[ChatMessageResponse])
 def admin_inbox(
