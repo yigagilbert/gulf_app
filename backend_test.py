@@ -3260,6 +3260,30 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def run_chat_system_tests(self):
+        """Run comprehensive chat system tests as requested in review"""
+        print("🚀 Starting Gulf Consultants Chat System Tests")
+        print("=" * 60)
+        
+        # Test health check first
+        if not self.test_health_check():
+            print("❌ Health check failed - API may not be running")
+            return False
+        
+        # Test authentication to get tokens
+        if not self.test_authentication_endpoints():
+            print("❌ Authentication tests failed - cannot proceed with chat tests")
+            return False
+        
+        # Run comprehensive chat system tests
+        chat_success = self.test_comprehensive_chat_system()
+        
+        print(f"\n🎉 Chat system tests completed!")
+        print(f"📊 Results: {self.tests_passed}/{self.tests_run} tests passed")
+        print(f"✅ Success rate: {(self.tests_passed/self.tests_run)*100:.1f}%")
+        
+        return chat_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
