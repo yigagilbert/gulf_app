@@ -176,6 +176,33 @@ class Document(Base):
     # Relationships
     client = relationship("ClientProfile", back_populates="documents")
 
+class EducationRecord(Base):
+    __tablename__ = "education_records"
+    
+    id = Column(String, primary_key=True, index=True)
+    client_id = Column(String, ForeignKey("client_profiles.id"), nullable=False)
+    school_name = Column(String, nullable=False)  # Name of School/College
+    year = Column(String)  # Year completed/attended
+    qualification = Column(String)  # Award/Qualification
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    client = relationship("ClientProfile", back_populates="education_records")
+
+class EmploymentRecord(Base):
+    __tablename__ = "employment_records"
+    
+    id = Column(String, primary_key=True, index=True)
+    client_id = Column(String, ForeignKey("client_profiles.id"), nullable=False)
+    employer = Column(String, nullable=False)  # Employer name
+    position = Column(String)  # Position Held
+    country = Column(String)  # Country of employment
+    period = Column(String)  # Period of employment (e.g., "2020-2022")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    client = relationship("ClientProfile", back_populates="employment_records")
+
 class JobOpportunity(Base):
     __tablename__ = "job_opportunities"
     
