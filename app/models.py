@@ -45,7 +45,8 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(String, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)  # Make nullable for clients
+    phone_number = Column(String, unique=True, index=True, nullable=True)  # Add phone number for clients
     password_hash = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.client)
     is_active = Column(Boolean, default=True)
