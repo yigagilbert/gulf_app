@@ -71,10 +71,12 @@ def migrate_database():
         
         # Copy admin users to new table
         for admin_user in admin_users:
+            # admin_user has 8 values: id, email, password_hash, role, is_active, email_verified, created_at, updated_at
+            # We need to insert: id, email, phone_number, password_hash, role, is_active, email_verified, created_at, updated_at
             cursor.execute("""
                 INSERT INTO users_new (id, email, phone_number, password_hash, role, is_active, email_verified, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, admin_user)
+                VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)
+            """, (admin_user[0], admin_user[1], admin_user[2], admin_user[3], admin_user[4], admin_user[5], admin_user[6], admin_user[7]))
         print(f"✅ Preserved {len(admin_users)} admin users")
         
         # Drop old table and rename new one
