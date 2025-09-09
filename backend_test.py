@@ -1378,7 +1378,7 @@ class JobPlacementAPITester:
         
         if test_application_id:
             status_update_data = {
-                "status": "interview_scheduled",
+                "status": "interview",
                 "interview_date": "2025-02-15T10:00:00Z",
                 "notes": "Initial interview scheduled with HR team"
             }
