@@ -121,7 +121,7 @@ const AdminClientDetailsPage = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await APIService.uploadProfilePhoto(clientId, formData);
+      const response = await APIService.uploadClientProfilePhoto(clientId, formData);
       
       // Update both client and form state
       const updatedClient = { ...client, profile_photo_url: response.profile_photo_url };
