@@ -1405,8 +1405,8 @@ class JobPlacementAPITester:
                         print(f"   Message: {status_update_response.get('message', 'N/A')}")
                         
                         # Verify the status was actually updated
-                        if status_update_response.get('new_status') == 'interview_scheduled':
-                            print("   ✅ Application status successfully updated to 'interview_scheduled'")
+                        if status_update_response.get('new_status') == 'interview':
+                            print("   ✅ Application status successfully updated to 'interview'")
                         else:
                             print("   ⚠️  Status update may not have been applied correctly")
                 else:
