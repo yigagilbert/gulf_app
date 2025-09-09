@@ -61,18 +61,18 @@ const AppRoutes = () => {
       {isAdmin && (
         <>
           <Route
-            path="/admin/*"
-            element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/admin/clients/:clientId"
             element={
               <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
                 <AdminClientDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
