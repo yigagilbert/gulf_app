@@ -3019,6 +3019,10 @@ def main():
     print("-" * 70)
     registration_format_success = tester.test_client_registration_response_format()
     
+    print("\n🏢 COMPREHENSIVE CLIENT ONBOARDING SYSTEM TESTS")
+    print("-" * 70)
+    onboarding_system_success = tester.test_comprehensive_client_onboarding_system()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
