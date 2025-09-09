@@ -2731,6 +2731,10 @@ def main():
     print("-" * 70)
     phone_auth_success = tester.test_phone_based_authentication_system()
     
+    print("\n🔐 CLIENT REGISTRATION RESPONSE FORMAT TESTS")
+    print("-" * 70)
+    registration_format_success = tester.test_client_registration_response_format()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
