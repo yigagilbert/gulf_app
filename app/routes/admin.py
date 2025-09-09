@@ -128,10 +128,14 @@ def admin_create_client(
         db.add(user)
         db.flush()
         
-        # Create basic client profile
+        # Create comprehensive client profile with system-generated fields
         profile = ClientProfile(
             id=str(uuid.uuid4()),
             user_id=user.id,
+            # System-generated fields
+            registration_date=datetime.utcnow(),
+            serial_number=generate_serial_number(db),
+            registration_number=generate_registration_number(db),
             status=ClientStatus.new,
             last_modified_by=admin_user.id
         )
