@@ -246,6 +246,127 @@ const OnboardingWizard = ({ onComplete }) => {
     }
     return true;
   };
+  // Field configuration for dynamic rendering
+  const fieldConfig = {
+    // Personal Information
+    first_name: { label: 'First Name', type: 'text', required: true, placeholder: 'Enter your first name' },
+    middle_name: { label: 'Middle Name', type: 'text', placeholder: 'Enter your middle name (optional)' },
+    last_name: { label: 'Last Name', type: 'text', required: true, placeholder: 'Enter your last name' },
+    age: { label: 'Age', type: 'number', placeholder: 'Enter your age' },
+    gender: { label: 'Gender', type: 'select', required: true, options: [
+      { value: '', label: 'Select gender' },
+      { value: 'male', label: 'Male' },
+      { value: 'female', label: 'Female' },
+      { value: 'other', label: 'Other' }
+    ]},
+    tribe: { label: 'Tribe', type: 'text', placeholder: 'Enter your tribe' },
+    date_of_birth: { label: 'Date of Birth', type: 'date', required: true },
+    place_of_birth: { label: 'Place of Birth', type: 'text', placeholder: 'Enter your place of birth' },
+    nationality: { label: 'Nationality', type: 'text', required: true, placeholder: 'Enter your nationality' },
+    religion: { label: 'Religion', type: 'text', placeholder: 'Enter your religion' },
+    
+    // Physical & Personal Details
+    marital_status: { label: 'Marital Status', type: 'select', required: true, options: [
+      { value: '', label: 'Select marital status' },
+      { value: 'single', label: 'Single' },
+      { value: 'married', label: 'Married' },
+      { value: 'divorced', label: 'Divorced' },
+      { value: 'widowed', label: 'Widowed' }
+    ]},
+    number_of_kids: { label: 'Number of Kids', type: 'number', placeholder: 'Enter number of children' },
+    height: { label: 'Height', type: 'text', placeholder: 'e.g., 5\'8" or 173cm' },
+    weight: { label: 'Weight', type: 'text', placeholder: 'e.g., 70kg' },
+    position_applied_for: { label: 'Position Applied For', type: 'text', required: true, placeholder: 'Enter the job position you are applying for' },
+    
+    // Location Information
+    present_address: { label: 'Present Address/Village', type: 'textarea', required: true, placeholder: 'Enter your current address' },
+    subcounty: { label: 'Subcounty', type: 'text', placeholder: 'Enter your subcounty' },
+    district: { label: 'District', type: 'text', required: true, placeholder: 'Enter your district' },
+    
+    // Contact Information
+    contact_1: { label: 'Primary Contact', type: 'tel', required: true, placeholder: 'Enter your primary phone number' },
+    contact_2: { label: 'Secondary Contact', type: 'tel', placeholder: 'Enter your secondary phone number (optional)' },
+    
+    // Official Documents
+    nin: { label: 'National ID Number (NIN)', type: 'text', required: true, placeholder: 'Enter your NIN' },
+    passport_number: { label: 'Passport Number', type: 'text', placeholder: 'Enter your passport number (if available)' },
+    
+    // Next of Kin
+    next_of_kin_name: { label: 'Name of Next of Kin', type: 'text', required: true, placeholder: 'Enter next of kin name' },
+    next_of_kin_contact_1: { label: 'Next of Kin Contact 1', type: 'tel', required: true, placeholder: 'Enter primary contact' },
+    next_of_kin_contact_2: { label: 'Next of Kin Contact 2', type: 'tel', placeholder: 'Enter secondary contact (optional)' },
+    next_of_kin_address: { label: 'Next of Kin Address', type: 'textarea', placeholder: 'Enter next of kin address' },
+    next_of_kin_subcounty: { label: 'Next of Kin Subcounty', type: 'text', placeholder: 'Enter subcounty' },
+    next_of_kin_district: { label: 'Next of Kin District', type: 'text', placeholder: 'Enter district' },
+    next_of_kin_relationship: { label: 'Relationship', type: 'text', required: true, placeholder: 'e.g., Father, Mother, Sibling, Spouse' },
+    next_of_kin_age: { label: 'Next of Kin Age', type: 'number', placeholder: 'Enter age' },
+    
+    // Father's Information
+    father_name: { label: "Father's Name", type: 'text', required: true, placeholder: "Enter your father's name" },
+    father_contact_1: { label: "Father's Contact 1", type: 'tel', placeholder: "Enter father's primary contact" },
+    father_contact_2: { label: "Father's Contact 2", type: 'tel', placeholder: "Enter father's secondary contact" },
+    father_address: { label: "Father's Address", type: 'textarea', placeholder: "Enter father's address" },
+    father_subcounty: { label: "Father's Subcounty", type: 'text', placeholder: "Enter subcounty" },
+    father_district: { label: "Father's District", type: 'text', placeholder: "Enter district" },
+    
+    // Mother's Information
+    mother_name: { label: "Mother's Name", type: 'text', required: true, placeholder: "Enter your mother's name" },
+    mother_contact_1: { label: "Mother's Contact 1", type: 'tel', placeholder: "Enter mother's primary contact" },
+    mother_contact_2: { label: "Mother's Contact 2", type: 'tel', placeholder: "Enter mother's secondary contact" },
+    mother_address: { label: "Mother's Address", type: 'textarea', placeholder: "Enter mother's address" },
+    mother_subcounty: { label: "Mother's Subcounty", type: 'text', placeholder: "Enter subcounty" },
+    mother_district: { label: "Mother's District", type: 'text', placeholder: "Enter district" },
+    
+    // Agent Information
+    agent_name: { label: 'Agent Name', type: 'text', placeholder: "Enter your recruitment agent's name" },
+    agent_contact: { label: 'Agent Contact', type: 'tel', placeholder: "Enter agent's contact number" }
+  };
+
+  const renderField = (fieldName) => {
+    const config = fieldConfig[fieldName];
+    if (!config) return null;
+
+    const baseInputClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
+    
+    return (
+      <div key={fieldName} className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          {config.label} {config.required && <span className="text-red-500">*</span>}
+        </label>
+        
+        {config.type === 'select' ? (
+          <select
+            value={formData[fieldName] || ''}
+            onChange={(e) => handleInputChange(fieldName, e.target.value)}
+            className={baseInputClasses}
+          >
+            {config.options?.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : config.type === 'textarea' ? (
+          <textarea
+            value={formData[fieldName] || ''}
+            onChange={(e) => handleInputChange(fieldName, e.target.value)}
+            className={`${baseInputClasses} h-20 resize-none`}
+            placeholder={config.placeholder}
+            rows={3}
+          />
+        ) : (
+          <input
+            type={config.type}
+            value={formData[fieldName] || ''}
+            onChange={(e) => handleInputChange(fieldName, e.target.value)}
+            className={baseInputClasses}
+            placeholder={config.placeholder}
+            min={config.type === 'number' ? 0 : undefined}
+          />
+        )}
+      </div>
+    );
+  };
 
   const handleNext = async () => {
     if (!validateCurrentStep()) {
