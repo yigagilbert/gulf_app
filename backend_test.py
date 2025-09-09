@@ -3267,6 +3267,13 @@ def main():
     
     tester = JobPlacementAPITester()
     
+    # Check if we should run chat system tests specifically
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "chat":
+        print("\n💬 RUNNING CHAT SYSTEM TESTS ONLY")
+        print("=" * 60)
+        return tester.run_chat_system_tests()
+    
     # Test sequence focusing on review request requirements
     print("\n🏥 HEALTH CHECK TEST")
     print("-" * 30)
@@ -3332,6 +3339,10 @@ def main():
     print("-" * 70)
     onboarding_system_success = tester.test_comprehensive_client_onboarding_system()
     
+    print("\n💬 COMPREHENSIVE CHAT SYSTEM TESTS")
+    print("-" * 70)
+    chat_system_success = tester.test_comprehensive_chat_system()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
@@ -3357,6 +3368,7 @@ def main():
     print(f"   ✅ Phone-Based Authentication: {'PASS' if phone_auth_success else 'FAIL'}")
     print(f"   ✅ Registration Response Format: {'PASS' if registration_format_success else 'FAIL'}")
     print(f"   ✅ Comprehensive Onboarding System: {'PASS' if onboarding_system_success else 'FAIL'}")
+    print(f"   ✅ Comprehensive Chat System: {'PASS' if chat_system_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
