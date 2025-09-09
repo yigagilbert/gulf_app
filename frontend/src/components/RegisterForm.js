@@ -246,43 +246,45 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           </div>
         </div>
 
-        {/* Phone Number - Primary Field */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Phone Number <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <input
-              type="tel"
-              name="phone_number"
-              value={formData.phone_number}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="1234567890"
-              required
-              disabled={loading}
-            />
-            <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-            {validationStates.phone_number && (
-              <div className="absolute right-3 top-2.5">
-                {validationStates.phone_number === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
+        {/* Phone Number - Primary Field for Clients */}
+        {isClient && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Phone Number <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="tel"
+                name="phone_number"
+                value={formData.phone_number}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="1234567890"
+                required
+                disabled={loading}
+              />
+              <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+              {validationStates.phone_number && (
+                <div className="absolute right-3 top-2.5">
+                  {validationStates.phone_number === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
+                </div>
+              )}
+            </div>
+            {errors.phone_number && (
+              <div className="flex items-center text-sm text-red-600 mt-1">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.phone_number}
               </div>
             )}
+            <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
           </div>
-          {errors.phone_number && (
-            <div className="flex items-center text-sm text-red-600 mt-1">
-              <AlertCircle className="h-4 w-4 mr-1" />
-              {errors.phone_number}
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
-        </div>
+        )}
 
-        {/* Email - Optional */}
+        {/* Email - Required for Admin, Optional for Client */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Email <span className="text-gray-400">(Optional)</span>
+            Email {isClient ? <span className="text-gray-400">(Optional)</span> : <span className="text-red-500">*</span>}
           </label>
           <div className="relative">
             <input
@@ -293,6 +295,7 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               onBlur={handleBlur}
               className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               placeholder="you@example.com"
+              required={!isClient}
               disabled={loading}
             />
             <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
@@ -308,7 +311,9 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               {errors.email}
             </div>
           )}
-          <p className="text-xs text-gray-500 mt-1">For notifications and communication</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {isClient ? 'For notifications and communication' : 'This will be your username for login'}
+          </p>
         </div>
 
         {/* Password */}
