@@ -136,7 +136,7 @@ def migrate_database():
         """)
         
         # Generate serial numbers and registration numbers for existing clients
-        cursor.execute("SELECT id, created_at FROM client_profiles WHERE serial_number IS NULL ORDER BY created_at")
+        cursor.execute("SELECT id, created_at FROM client_profiles WHERE (serial_number IS NULL OR serial_number = '') ORDER BY created_at")
         existing_clients = cursor.fetchall()
         
         for i, (client_id, created_at) in enumerate(existing_clients, 1):
@@ -144,7 +144,11 @@ def migrate_database():
             import datetime
             if created_at:
                 try:
-                    dt = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    # Handle different datetime formats
+                    if 'T' in created_at:
+                        dt = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    else:
+                        dt = datetime.datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
                     date_part = dt.strftime("%Y%m%d")
                 except:
                     date_part = datetime.datetime.now().strftime("%Y%m%d")
