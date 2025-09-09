@@ -58,37 +58,43 @@ class JobPlacementAPITester:
 
     def test_client_registration(self):
         """Test client registration"""
-        test_email = f"test_client_{datetime.now().strftime('%H%M%S')}@example.com"
+        test_phone = f"test{datetime.now().strftime('%H%M%S')}"
         success, response = self.run_test(
             "Client Registration",
             "POST",
-            "auth/register",
+            "auth/register/client",
             200,
             data={
-                "email": test_email,
-                "password": "testpassword123"
+                "first_name": "Test",
+                "last_name": "Client",
+                "phone_number": test_phone,
+                "password": "testpassword123",
+                "email": f"test{datetime.now().strftime('%H%M%S')}@example.com"
             }
         )
         if success:
-            self.client_user_id = response.get('id')
+            # Extract user info from response
+            user_info = response.get('user', {})
+            self.client_user_id = user_info.get('id')
             print(f"   Client ID: {self.client_user_id}")
-        return success, test_email
+        return success, test_phone
 
-    def test_client_login(self, email, password="testpassword123"):
+    def test_client_login(self, phone_number, password="testpassword123"):
         """Test client login"""
         success, response = self.run_test(
             "Client Login",
             "POST",
-            "auth/login",
+            "auth/login/client",
             200,
             data={
-                "email": email,
+                "phone_number": phone_number,
                 "password": password
             }
         )
         if success:
             self.client_token = response.get('access_token')
-            self.client_user_id = response.get('user', {}).get('id')
+            user_info = response.get('user', {})
+            self.client_user_id = user_info.get('id')
             print(f"   Client Token: {self.client_token[:20]}...")
         return success
 
