@@ -878,7 +878,7 @@ def admin_update_application_status(
     notes = status_data.get('notes')
     
     # Valid status values based on ApplicationStatus enum
-    valid_statuses = ['applied', 'interview_scheduled', 'hired', 'rejected']
+    valid_statuses = ['applied', 'screening', 'interview', 'offered', 'accepted', 'rejected', 'withdrawn']
     if new_status not in valid_statuses:
         raise HTTPException(
             status_code=400, 
