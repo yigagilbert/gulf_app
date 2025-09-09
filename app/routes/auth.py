@@ -90,27 +90,41 @@ def register_admin(user_data: UserCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
-        profile = ClientProfile(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            status="new"
-        )
-        db.add(profile)
-        db.commit()
-        db.refresh(user)
-        return UserResponse(id=user.id, email=user.email, role=user.role, is_active=user.is_active)
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-    
-
-@router.post("/login")
-def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_credentials.email).first()
-    if not user or not verify_password(user_credentials.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+@router.post("/login/client")
+def login_client(client_credentials: ClientLogin, db: Session = Depends(get_db)):
+    """Client login using phone number as username"""
+    user = db.query(User).filter(User.phone_number == client_credentials.phone_number).first()
+    if not user or not verify_password(client_credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid phone number or password")
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account inactive")
+    if user.role != UserRole.client:
+        raise HTTPException(status_code=401, detail="Invalid login method for this account type")
+    
+    access_token = create_access_token(data={"sub": user.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "phone_number": user.phone_number,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active
+        }
+    }
+
+@router.post("/login/admin")
+def login_admin(user_credentials: UserLogin, db: Session = Depends(get_db)):
+    """Admin login using email (traditional)"""
+    user = db.query(User).filter(User.email == user_credentials.email).first()
+    if not user or not verify_password(user_credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Account inactive")
+    if user.role not in [UserRole.admin, UserRole.super_admin]:
+        raise HTTPException(status_code=401, detail="Invalid login method for this account type")
+    
     access_token = create_access_token(data={"sub": user.id})
     return {
         "access_token": access_token,
@@ -118,6 +132,14 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         "user": {
             "id": user.id,
             "email": user.email,
-            "role": user.role
+            "phone_number": user.phone_number,
+            "role": user.role,
+            "is_active": user.is_active
         }
     }
+
+# Legacy login endpoint for backward compatibility
+@router.post("/login")
+def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
+    """Legacy login endpoint - redirects to admin login"""
+    return login_admin(user_credentials, db)
