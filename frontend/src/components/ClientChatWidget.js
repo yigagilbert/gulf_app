@@ -158,7 +158,10 @@ const ClientChatWidget = () => {
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5" />
               <span className="font-semibold">
-                {isAdmin ? 'Client Support' : 'Chat with Admin'}
+                {isAdmin ? 'Client Support' : 
+                 selectedAdmin && adminList.length > 0 
+                   ? `Chat with ${adminList.find(a => a.id === selectedAdmin)?.name || 'Admin'}` 
+                   : 'Chat with Admin'}
               </span>
             </div>
             <button 
