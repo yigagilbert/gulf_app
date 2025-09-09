@@ -160,6 +160,7 @@ def admin_create_client(
         return UserResponse(
             id=user.id,
             email=user.email,
+            phone_number=user.phone_number,
             role=user.role,
             is_active=user.is_active
         )
