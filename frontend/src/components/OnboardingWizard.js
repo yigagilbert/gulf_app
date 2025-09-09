@@ -227,14 +227,20 @@ const OnboardingWizard = ({ onComplete }) => {
     const currentStepFields = steps[currentStep].fields;
     const requiredFields = {
       personal: ['first_name', 'last_name', 'date_of_birth', 'gender', 'nationality'],
-      contact: ['phone_primary', 'address_current'],
-      emergency: ['emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship']
+      physical: ['marital_status', 'position_applied_for'],
+      location: ['present_address', 'district'],
+      contact: ['contact_1'],
+      documents: ['nin'],
+      next_of_kin: ['next_of_kin_name', 'next_of_kin_contact_1', 'next_of_kin_relationship'],
+      father: ['father_name'],
+      mother: ['mother_name'],
+      agent: [] // Optional step
     };
 
     const stepRequiredFields = requiredFields[steps[currentStep].id] || [];
     
     for (const field of stepRequiredFields) {
-      if (!formData[field] || formData[field].trim() === '') {
+      if (!formData[field] || formData[field].toString().trim() === '') {
         return false;
       }
     }
