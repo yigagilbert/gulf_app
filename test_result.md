@@ -255,6 +255,18 @@ backend:
         agent: "testing"
         comment: "CRITICAL ISSUE IDENTIFIED AND RESOLVED: Photo upload was working but photos were not displaying in frontend due to static file serving configuration issue. Root cause: Static files were mounted at '/uploads' but API routes use '/api' prefix, causing URL mismatch. Photos were being uploaded with URLs like '/uploads/profile_photos/...' but these were being served by frontend (returning HTML) instead of backend (returning actual images). SOLUTION IMPLEMENTED: 1) Updated static file mounting from '/uploads' to '/api/uploads' in main.py, 2) Updated photo URLs in admin.py to return '/api/uploads/profile_photos/...' format, 3) Updated document URLs for consistency. VERIFICATION: All tests now pass - photos upload correctly, URLs are properly formatted, static file serving works with correct content-type (image/png instead of text/html), and photos are accessible via the returned URLs. The issue was backend configuration, not frontend code."
 
+  - task: "Comprehensive Client Profile Functionality"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive client profile functionality tested extensively and working perfectly. All test requirements from the review request have been met: 1) Client Profile Retrieval: GET /api/admin/clients/{client_id} successfully returns all new comprehensive fields (39/39 fields present). 2) System-Generated Fields: Existing clients now have serial_number and registration_number fields properly populated (e.g., SN-20250909-0001, REG-2025-0000001). 3) New Field Structure: Response includes all comprehensive categories - Form Registration Details (3/3 fields), Expanded Bio Data (14/14 fields), Next of Kin fields (8/8 fields), Parent's Details for Father and Mother (6/6 each), and Agent Information (2/2 fields). 4) Profile Update: Client profile update with comprehensive fields works perfectly using PUT /api/admin/clients/{client_id}/onboard endpoint - all 24 test fields updated and persisted correctly. 5) Backward Compatibility: All legacy fields (first_name, last_name, status, created_at, updated_at) maintained. The comprehensive client profile system is production-ready and fully functional."
+
 metadata:
   created_by: "testing_agent"
   version: "1.1"
