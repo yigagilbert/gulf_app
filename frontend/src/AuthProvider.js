@@ -292,12 +292,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, [updateActivity]);
 
-  const register = useCallback(async (userData) => {
+  const register = useCallback(async (userData, isClient = true) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await APIService.register(userData);
+      const response = await APIService.register(userData, isClient);
       
       if (response && response.access_token && response.user) {
         // Store auth data
