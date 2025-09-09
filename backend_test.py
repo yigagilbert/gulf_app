@@ -3045,6 +3045,9 @@ def main():
     print(f"   ✅ Client Deletion System: {'PASS' if client_deletion_success else 'FAIL'}")
     print(f"   ✅ Admin Photo Upload System: {'PASS' if photo_upload_success else 'FAIL'}")
     print(f"   ✅ Comprehensive Client Profile: {'PASS' if comprehensive_profile_success else 'FAIL'}")
+    print(f"   ✅ Phone-Based Authentication: {'PASS' if phone_auth_success else 'FAIL'}")
+    print(f"   ✅ Registration Response Format: {'PASS' if registration_format_success else 'FAIL'}")
+    print(f"   ✅ Comprehensive Onboarding System: {'PASS' if onboarding_system_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
