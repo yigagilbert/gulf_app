@@ -208,8 +208,8 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
             <label className="block text-sm font-medium text-gray-700">First Name</label>
             <input
               type="text"
-              name="firstName"
-              value={formData.firstName}
+              name="first_name"
+              value={formData.first_name}
               onChange={handleChange}
               onBlur={handleBlur}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
@@ -217,10 +217,10 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               required
               disabled={loading}
             />
-            {errors.firstName && (
+            {errors.first_name && (
               <div className="flex items-center text-sm text-red-600 mt-1">
                 <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.firstName}
+                {errors.first_name}
               </div>
             )}
           </div>
@@ -228,8 +228,8 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
             <label className="block text-sm font-medium text-gray-700">Last Name</label>
             <input
               type="text"
-              name="lastName"
-              value={formData.lastName}
+              name="last_name"
+              value={formData.last_name}
               onChange={handleChange}
               onBlur={handleBlur}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
@@ -237,18 +237,53 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               required
               disabled={loading}
             />
-            {errors.lastName && (
+            {errors.last_name && (
               <div className="flex items-center text-sm text-red-600 mt-1">
                 <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.lastName}
+                {errors.last_name}
               </div>
             )}
           </div>
         </div>
 
-        {/* Email */}
+        {/* Phone Number - Primary Field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Phone Number <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type="tel"
+              name="phone_number"
+              value={formData.phone_number}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              placeholder="1234567890"
+              required
+              disabled={loading}
+            />
+            <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            {validationStates.phone_number && (
+              <div className="absolute right-3 top-2.5">
+                {validationStates.phone_number === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
+              </div>
+            )}
+          </div>
+          {errors.phone_number && (
+            <div className="flex items-center text-sm text-red-600 mt-1">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.phone_number}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
+        </div>
+
+        {/* Email - Optional */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Email <span className="text-gray-400">(Optional)</span>
+          </label>
           <div className="relative">
             <input
               type="email"
@@ -258,7 +293,6 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               onBlur={handleBlur}
               className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               placeholder="you@example.com"
-              required
               disabled={loading}
             />
             <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
@@ -274,6 +308,7 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
               {errors.email}
             </div>
           )}
+          <p className="text-xs text-gray-500 mt-1">For notifications and communication</p>
         </div>
 
         {/* Password */}
