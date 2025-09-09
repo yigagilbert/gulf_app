@@ -641,8 +641,8 @@ def upload_client_profile_photo_admin(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Update client profile with photo URL
-        client.profile_photo_url = f"/uploads/profile_photos/{filename}"
+        # Update client profile with photo URL (include /api prefix for proper routing)
+        client.profile_photo_url = f"/api/uploads/profile_photos/{filename}"
         client.updated_at = datetime.utcnow()
         client.last_modified_by = admin_user.id
         
