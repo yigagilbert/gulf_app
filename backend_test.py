@@ -2413,6 +2413,260 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_client_registration_response_format(self):
+        """Test client registration endpoint response format for frontend AuthProvider compatibility"""
+        print("\n🔐 CLIENT REGISTRATION RESPONSE FORMAT TESTS")
+        print("-" * 60)
+        
+        # Test 1: Client Registration Response Format
+        print("🔍 Step 1: Testing client registration response format...")
+        
+        # Generate unique phone number for testing
+        import random
+        test_phone = f"999888{random.randint(1000, 9999)}"
+        
+        success, response = self.run_test(
+            "Client Registration Response Format",
+            "POST",
+            "auth/register/client",
+            200,
+            data={
+                "first_name": "Test",
+                "last_name": "User", 
+                "phone_number": test_phone,
+                "password": "testpassword123",
+                "email": "testuser@example.com"
+            }
+        )
+        
+        if not success:
+            print("❌ Client registration failed")
+            return False
+        
+        print(f"✅ Client registration successful")
+        print(f"   Response received: {response}")
+        
+        # Validate exact response structure expected by frontend
+        required_top_level_fields = ['access_token', 'token_type', 'user']
+        missing_top_fields = [field for field in required_top_level_fields if field not in response]
+        
+        if missing_top_fields:
+            print(f"❌ CRITICAL: Registration response missing top-level fields: {missing_top_fields}")
+            return False
+        
+        print(f"✅ Top-level response structure correct")
+        print(f"   access_token: {response.get('access_token', 'MISSING')[:20]}...")
+        print(f"   token_type: {response.get('token_type', 'MISSING')}")
+        
+        # Validate user object structure
+        user_obj = response.get('user', {})
+        if not user_obj:
+            print(f"❌ CRITICAL: User object is empty or missing")
+            return False
+        
+        required_user_fields = ['id', 'phone_number', 'email', 'role', 'is_active']
+        missing_user_fields = [field for field in required_user_fields if field not in user_obj]
+        
+        if missing_user_fields:
+            print(f"❌ CRITICAL: User object missing fields: {missing_user_fields}")
+            return False
+        
+        print(f"✅ User object structure correct")
+        print(f"   id: {user_obj.get('id', 'MISSING')}")
+        print(f"   phone_number: {user_obj.get('phone_number', 'MISSING')}")
+        print(f"   email: {user_obj.get('email', 'MISSING')}")
+        print(f"   role: {user_obj.get('role', 'MISSING')}")
+        print(f"   is_active: {user_obj.get('is_active', 'MISSING')}")
+        
+        # Validate field values
+        if response.get('token_type') != 'bearer':
+            print(f"❌ CRITICAL: token_type should be 'bearer', got '{response.get('token_type')}'")
+            return False
+        
+        if user_obj.get('role') != 'client':
+            print(f"❌ CRITICAL: user role should be 'client', got '{user_obj.get('role')}'")
+            return False
+        
+        if user_obj.get('is_active') != True:
+            print(f"❌ CRITICAL: user is_active should be True, got '{user_obj.get('is_active')}'")
+            return False
+        
+        if user_obj.get('phone_number') != test_phone:
+            print(f"❌ CRITICAL: phone_number mismatch, expected '{test_phone}', got '{user_obj.get('phone_number')}'")
+            return False
+        
+        print(f"✅ All field values are correct")
+        
+        client_registration_success = True
+        
+        # Test 2: Admin Registration Response Format
+        print(f"\n🔍 Step 2: Testing admin registration response format...")
+        
+        # Generate unique email for admin testing
+        test_admin_email = f"testadmin{random.randint(1000, 9999)}@example.com"
+        
+        success, admin_response = self.run_test(
+            "Admin Registration Response Format",
+            "POST",
+            "auth/register/admin",
+            200,
+            data={
+                "email": test_admin_email,
+                "password": "testpassword123"
+            }
+        )
+        
+        if not success:
+            print("❌ Admin registration failed")
+            admin_registration_success = False
+        else:
+            print(f"✅ Admin registration successful")
+            print(f"   Response received: {admin_response}")
+            
+            # Validate admin response structure (same as client)
+            missing_admin_fields = [field for field in required_top_level_fields if field not in admin_response]
+            
+            if missing_admin_fields:
+                print(f"❌ CRITICAL: Admin registration response missing fields: {missing_admin_fields}")
+                admin_registration_success = False
+            else:
+                admin_user_obj = admin_response.get('user', {})
+                required_admin_user_fields = ['id', 'email', 'phone_number', 'role', 'is_active']
+                missing_admin_user_fields = [field for field in required_admin_user_fields if field not in admin_user_obj]
+                
+                if missing_admin_user_fields:
+                    print(f"❌ CRITICAL: Admin user object missing fields: {missing_admin_user_fields}")
+                    admin_registration_success = False
+                else:
+                    print(f"✅ Admin response structure correct")
+                    print(f"   id: {admin_user_obj.get('id', 'MISSING')}")
+                    print(f"   email: {admin_user_obj.get('email', 'MISSING')}")
+                    print(f"   phone_number: {admin_user_obj.get('phone_number', 'MISSING')}")
+                    print(f"   role: {admin_user_obj.get('role', 'MISSING')}")
+                    print(f"   is_active: {admin_user_obj.get('is_active', 'MISSING')}")
+                    
+                    # Validate admin field values
+                    if admin_response.get('token_type') != 'bearer':
+                        print(f"❌ CRITICAL: Admin token_type should be 'bearer', got '{admin_response.get('token_type')}'")
+                        admin_registration_success = False
+                    elif admin_user_obj.get('role') != 'admin':
+                        print(f"❌ CRITICAL: Admin role should be 'admin', got '{admin_user_obj.get('role')}'")
+                        admin_registration_success = False
+                    elif admin_user_obj.get('is_active') != True:
+                        print(f"❌ CRITICAL: Admin is_active should be True, got '{admin_user_obj.get('is_active')}'")
+                        admin_registration_success = False
+                    elif admin_user_obj.get('email') != test_admin_email:
+                        print(f"❌ CRITICAL: Admin email mismatch, expected '{test_admin_email}', got '{admin_user_obj.get('email')}'")
+                        admin_registration_success = False
+                    else:
+                        print(f"✅ All admin field values are correct")
+                        admin_registration_success = True
+        
+        # Test 3: Verify JWT Token Format
+        print(f"\n🔍 Step 3: Testing JWT token format and functionality...")
+        
+        client_token = response.get('access_token')
+        if not client_token:
+            print("❌ CRITICAL: No access token received from client registration")
+            jwt_test_success = False
+        else:
+            # Basic JWT format check (should have 3 parts separated by dots)
+            token_parts = client_token.split('.')
+            if len(token_parts) != 3:
+                print(f"❌ CRITICAL: JWT token format invalid, expected 3 parts, got {len(token_parts)}")
+                jwt_test_success = False
+            else:
+                print(f"✅ JWT token format is correct (3 parts)")
+                
+                # Test token functionality by accessing protected endpoint
+                client_headers = {'Authorization': f'Bearer {client_token}'}
+                
+                success, profile_response = self.run_test(
+                    "JWT Token Functionality Test",
+                    "GET",
+                    "profile/me",
+                    200,
+                    headers=client_headers
+                )
+                
+                if success:
+                    print(f"✅ JWT token functionality working correctly")
+                    jwt_test_success = True
+                else:
+                    print(f"❌ CRITICAL: JWT token not working for protected endpoints")
+                    jwt_test_success = False
+        
+        # Test 4: Response Consistency Check
+        print(f"\n🔍 Step 4: Testing response consistency across multiple registrations...")
+        
+        # Register another client to ensure consistent response format
+        test_phone_2 = f"999888{random.randint(5000, 5999)}"
+        
+        success, response_2 = self.run_test(
+            "Second Client Registration Consistency",
+            "POST",
+            "auth/register/client",
+            200,
+            data={
+                "first_name": "Test2",
+                "last_name": "User2", 
+                "phone_number": test_phone_2,
+                "password": "testpassword123",
+                "email": "testuser2@example.com"
+            }
+        )
+        
+        consistency_success = False
+        if success:
+            # Check if response structure is identical
+            response_2_fields = set(response_2.keys())
+            response_1_fields = set(response.keys())
+            
+            if response_2_fields == response_1_fields:
+                user_2_fields = set(response_2.get('user', {}).keys())
+                user_1_fields = set(response.get('user', {}).keys())
+                
+                if user_2_fields == user_1_fields:
+                    print(f"✅ Response format is consistent across registrations")
+                    consistency_success = True
+                else:
+                    print(f"❌ CRITICAL: User object fields inconsistent between registrations")
+                    print(f"   First: {user_1_fields}")
+                    print(f"   Second: {user_2_fields}")
+            else:
+                print(f"❌ CRITICAL: Response fields inconsistent between registrations")
+                print(f"   First: {response_1_fields}")
+                print(f"   Second: {response_2_fields}")
+        else:
+            print(f"❌ Second client registration failed")
+        
+        # Calculate overall results
+        print(f"\n📊 CLIENT REGISTRATION RESPONSE FORMAT TEST SUMMARY:")
+        print(f"   ✅ Client Registration Format: {'PASS' if client_registration_success else 'FAIL'}")
+        print(f"   ✅ Admin Registration Format: {'PASS' if admin_registration_success else 'FAIL'}")
+        print(f"   ✅ JWT Token Format & Function: {'PASS' if jwt_test_success else 'FAIL'}")
+        print(f"   ✅ Response Consistency: {'PASS' if consistency_success else 'FAIL'}")
+        
+        # Overall success
+        overall_success = all([
+            client_registration_success,
+            admin_registration_success,
+            jwt_test_success,
+            consistency_success
+        ])
+        
+        if overall_success:
+            print(f"\n🎉 CLIENT REGISTRATION RESPONSE FORMAT: ALL TESTS PASSED")
+            print(f"   ✅ Response format matches frontend AuthProvider expectations")
+            print(f"   ✅ All required fields present with correct values")
+            print(f"   ✅ JWT tokens working correctly")
+            print(f"   ✅ Response format is consistent")
+        else:
+            print(f"\n⚠️  CLIENT REGISTRATION RESPONSE FORMAT: SOME TESTS FAILED")
+            print(f"   ⚠️  Frontend AuthProvider may encounter 'Invalid registration response' errors")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
