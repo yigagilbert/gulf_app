@@ -240,6 +240,18 @@ backend:
         agent: "testing"
         comment: "Gulf Consultants client deletion functionality tested extensively and working perfectly. The DELETE /api/admin/clients/{client_id} endpoint is functioning correctly with comprehensive cascading deletion. Successfully tested deletion of client 'YIGA GILBERT' (a434d812-1c6a-4e3d-945a-8153c7088c51) with 45 associated documents. All associated data properly cleaned up including documents, chat messages, job applications, profile photos, and physical files. Proper admin authentication and authorization enforced - non-admin users get 403 Forbidden. Error handling working correctly - non-existent clients return 404. Client successfully removed from client list after deletion. Response format includes proper audit information (deleted_by, deleted_at, deleted client details). All test scenarios passed: admin deletion success, client list removal verification, cascading deletion verification, non-admin access restriction, non-existent client handling, and proper response format validation."
 
+  - task: "Admin Client Profile Photo Upload"
+    implemented: true
+    working: true
+    file: "app/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Admin client profile photo upload endpoint tested comprehensively and working perfectly. The POST /api/admin/clients/{client_id}/photo endpoint is functioning correctly with proper admin authentication, file validation, and error handling. Successfully tested photo upload with valid admin credentials and existing client ID. Response returns proper structure with profile_photo_url field. Client profile is correctly updated with new photo URL. Old photos are properly deleted when new ones are uploaded. All edge cases tested successfully: invalid client ID returns 404, non-admin users get 403 Forbidden, invalid file types return 400 Bad Request. Fixed error handling issue where HTTPExceptions were being caught and converted to 500 errors. All test scenarios passed: valid admin photo upload, client profile update verification, invalid client ID handling, non-admin access restriction, invalid file type rejection, and old photo deletion verification."
+
 metadata:
   created_by: "testing_agent"
   version: "1.1"
