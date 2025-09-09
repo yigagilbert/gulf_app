@@ -101,25 +101,35 @@ def get_all_clients(
 
 @router.post("/clients/create", response_model=UserResponse)
 def admin_create_client(
-    user_data: UserCreate,
+    client_data: ClientCreate,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Admin creates a client account"""
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    """Admin creates a client account using phone number as username"""
+    # Check if phone number already exists
+    existing_user = db.query(User).filter(User.phone_number == client_data.phone_number).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Phone number already registered"
         )
+    
+    # Check if email exists (if provided)
+    if client_data.email:
+        existing_email = db.query(User).filter(User.email == client_data.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
     
     try:
         # Create user account
-        hashed_password = get_password_hash(user_data.password)
+        hashed_password = get_password_hash(client_data.password)
         user = User(
             id=str(uuid.uuid4()),
-            email=user_data.email,
+            phone_number=client_data.phone_number,
+            email=client_data.email,  # Optional
             password_hash=hashed_password,
             role=UserRole.client,
             is_active=True,
@@ -132,6 +142,10 @@ def admin_create_client(
         profile = ClientProfile(
             id=str(uuid.uuid4()),
             user_id=user.id,
+            # Basic info from registration
+            first_name=client_data.first_name,
+            last_name=client_data.last_name,
+            contact_1=client_data.phone_number,  # Use phone as primary contact
             # System-generated fields
             registration_date=datetime.utcnow(),
             serial_number=generate_serial_number(db),
