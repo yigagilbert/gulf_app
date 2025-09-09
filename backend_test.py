@@ -2213,6 +2213,7 @@ def main():
     print(f"   ✅ Status Management System: {'PASS' if status_management_success else 'FAIL'}")
     print(f"   ✅ Client Deletion System: {'PASS' if client_deletion_success else 'FAIL'}")
     print(f"   ✅ Admin Photo Upload System: {'PASS' if photo_upload_success else 'FAIL'}")
+    print(f"   ✅ Comprehensive Client Profile: {'PASS' if comprehensive_profile_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
