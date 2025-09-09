@@ -180,10 +180,10 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Join Gulf Consultants
+          {isClient ? 'Join as Client' : 'Create Admin Account'}
         </h2>
         <p className="text-gray-600">
-          Create your account to access exclusive job opportunities
+          {isClient ? 'Register with your phone number to access job opportunities' : 'Create your admin account'}
         </p>
       </div>
 
