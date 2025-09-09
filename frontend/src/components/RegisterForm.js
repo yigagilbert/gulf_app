@@ -146,10 +146,20 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
     }
 
     try {
-      await register({email:formData.email, password:formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName
-      });
+      const registrationData = isClient ? {
+        // Client registration data
+        phone_number: formData.phone_number,
+        email: formData.email || undefined, // Optional for clients
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name
+      } : {
+        // Admin registration data (if needed)
+        email: formData.email,
+        password: formData.password
+      };
+      
+      await register(registrationData, isClient);
       setSuccess(true);
       // Optionally toggle to login or redirect
     } catch (err) {
