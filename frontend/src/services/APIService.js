@@ -406,7 +406,7 @@ class APIServiceClass {
   }
 
   async getChatHistory(userId) {
-    return this.request(`/chat/history?user_id=${userId}`);
+    return this.request(`/chat/history?with_user_id=${userId}`);
   }
 
   /**
