@@ -5,6 +5,8 @@ import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.database import Base, engine
 # Import routers
 from app.routes.auth import router as auth_router
@@ -12,6 +14,7 @@ from app.routes.profile import router as profile_router
 from app.routes.documents import router as documents_router
 from app.routes.admin import router as admin_router
 from app.routes.jobs import router as jobs_router
+from app.routes.chat import router as chat_router
 # Default admin creation (utility function)
 from app.models import User
 from app.utils import get_password_hash
@@ -30,6 +33,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://gulf-app.vercel.app",
+        "https://consultportal.preview.emergentagent.com",  # Production frontend URL
+        "https://consultportal.preview.emergentagent.com",  # User's current frontend URL
         "http://localhost:3000",      # React dev server
         "http://127.0.0.1:3000",     # Alternative localhost
         "https://localhost:3000",     # HTTPS version
@@ -50,12 +55,27 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(profile_router)
-app.include_router(documents_router)
-app.include_router(admin_router)
-app.include_router(jobs_router)
+# Include routers with /api prefix for Kubernetes ingress
+app.include_router(auth_router, prefix="/api")
+app.include_router(profile_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(jobs_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
+
+# Health check endpoint
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "message": "Gulf Consultants API is running"}
+
+# Create uploads directory if it doesn't exist
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+(uploads_dir / "profile_photos").mkdir(exist_ok=True)
+(uploads_dir / "client_documents").mkdir(exist_ok=True)
+
+# Mount static files for serving uploads under /api prefix to match ingress routing
+app.mount("/api/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")

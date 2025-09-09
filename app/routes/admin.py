@@ -1,46 +1,264 @@
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import Optional
-from app.models import User, ClientProfile, Document
+from typing import Optional, List
+import uuid
+import os
+import shutil
+from pathlib import Path
+from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage, EducationRecord, EmploymentRecord
+from app.schemas import (
+    UserCreate, ClientCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
+    AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate,
+    EducationRecordCreate, EducationRecordResponse, EmploymentRecordCreate, EmploymentRecordResponse
+)
 from app.database import get_db
 from app.dependencies import get_admin_user
+from app.utils import get_password_hash, create_access_token
+import random
+import string
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-@router.get("/clients")
+def generate_serial_number(db: Session) -> str:
+    """Generate unique serial number for client registration"""
+    while True:
+        # Format: SN-YYYYMMDD-XXXX (e.g., SN-20250109-0001)
+        date_part = datetime.now().strftime("%Y%m%d")
+        # Get count of clients registered today
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_count = db.query(ClientProfile).filter(
+            ClientProfile.registration_date >= today_start
+        ).count() + 1
+        
+        serial_number = f"SN-{date_part}-{today_count:04d}"
+        
+        # Check if already exists (unlikely but safe)
+        existing = db.query(ClientProfile).filter(ClientProfile.serial_number == serial_number).first()
+        if not existing:
+            return serial_number
+
+def generate_registration_number(db: Session) -> str:
+    """Generate unique registration number for client"""
+    while True:
+        # Format: REG-YYYY-XXXXXXX (e.g., REG-2025-0001234)
+        year = datetime.now().year
+        # Get total count of all clients for sequential numbering
+        total_count = db.query(ClientProfile).count() + 1
+        
+        registration_number = f"REG-{year}-{total_count:07d}"
+        
+        # Check if already exists
+        existing = db.query(ClientProfile).filter(ClientProfile.registration_number == registration_number).first()
+        if not existing:
+            return registration_number
+
+@router.get("/clients", response_model=List[AdminClientListResponse])
 def get_all_clients(
     skip: int = 0,
     limit: int = 100,
     status: Optional[str] = None,
+    search: Optional[str] = None,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(ClientProfile)
+    """Get all clients with optional filtering"""
+    # Join ClientProfile with User to filter by role
+    query = db.query(ClientProfile).join(User, ClientProfile.user_id == User.id).filter(
+        User.role == UserRole.client  # Only include users with client role
+    )
+    
     if status:
         query = query.filter(ClientProfile.status == status)
+    
     clients = query.offset(skip).limit(limit).all()
-    return clients
+    
+    result = []
+    for client in clients:
+        user = db.query(User).filter(User.id == client.user_id).first()
+        
+        # Apply search filtering after getting user info
+        if search and user:
+            search_lower = search.lower()
+            if not (
+                search_lower in (user.email or '').lower() or
+                search_lower in (client.first_name or '').lower() or
+                search_lower in (client.last_name or '').lower()
+            ):
+                continue
+        
+        result.append(AdminClientListResponse(
+            id=client.id,
+            user_email=user.email if user else "Unknown",
+            first_name=client.first_name,
+            last_name=client.last_name,
+            status=client.status,
+            created_at=client.created_at,
+            verification_notes=client.verification_notes
+        ))
+    
+    return result
 
-@router.put("/clients/{client_id}/verify")
-def verify_client(
-    client_id: str,
-    verification_notes: Optional[str] = None,
+@router.post("/clients/create", response_model=UserResponse)
+def admin_create_client(
+    client_data: ClientCreate,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    client.status = "verified"
-    client.verified_by = admin_user.id
-    client.verified_at = datetime.utcnow()
-    client.verification_notes = verification_notes
-    client.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(client)
-    return client
+    """Admin creates a client account using phone number as username"""
+    # Check if phone number already exists
+    existing_user = db.query(User).filter(User.phone_number == client_data.phone_number).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already registered"
+        )
+    
+    # Check if email exists (if provided)
+    if client_data.email:
+        existing_email = db.query(User).filter(User.email == client_data.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+    
+    try:
+        # Create user account
+        hashed_password = get_password_hash(client_data.password)
+        user = User(
+            id=str(uuid.uuid4()),
+            phone_number=client_data.phone_number,
+            email=client_data.email,  # Optional
+            password_hash=hashed_password,
+            role=UserRole.client,
+            is_active=True,
+            email_verified=True  # Admin-created accounts are pre-verified
+        )
+        db.add(user)
+        db.flush()
+        
+        # Create comprehensive client profile with system-generated fields
+        profile = ClientProfile(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            # Basic info from registration
+            first_name=client_data.first_name,
+            last_name=client_data.last_name,
+            contact_1=client_data.phone_number,  # Use phone as primary contact
+            # System-generated fields
+            registration_date=datetime.utcnow(),
+            serial_number=generate_serial_number(db),
+            registration_number=generate_registration_number(db),
+            status=ClientStatus.new,
+            last_modified_by=admin_user.id
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(user)
+        
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            phone_number=user.phone_number,
+            role=user.role,
+            is_active=user.is_active
+        )
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create client: {str(e)}"
+        )
+
+@router.put("/clients/{client_id}/onboard", response_model=ClientProfileResponse)
+def admin_complete_onboarding(
+    client_id: str,
+    profile_data: ClientProfileUpdate,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin completes onboarding process on behalf of client"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Update profile with provided data
+    update_data = profile_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(client_profile, field) and value is not None:
+            setattr(client_profile, field, value)
+    
+    # Update metadata
+    client_profile.last_modified_by = admin_user.id
+    client_profile.updated_at = datetime.utcnow()
+    
+    # If all required fields are filled, mark as under_review
+    if _check_onboarding_complete(client_profile):
+        client_profile.status = ClientStatus.under_review
+    
+    try:
+        db.commit()
+        db.refresh(client_profile)
+        return client_profile
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update client profile: {str(e)}"
+        )
+
+@router.get("/clients/{client_id}", response_model=ClientProfileResponse)
+def get_client_profile(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed client profile for admin"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    return client_profile
+
+@router.put("/clients/{client_id}/verify", response_model=ClientProfileResponse)
+def verify_client(
+    client_id: str,
+    verification_data: AdminVerificationUpdate,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Verify client profile"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    client_profile.status = verification_data.status
+    if verification_data.verification_notes:
+        client_profile.verification_notes = verification_data.verification_notes
+    client_profile.verified_by = admin_user.id
+    client_profile.verified_at = datetime.utcnow()
+    client_profile.last_modified_by = admin_user.id
+    
+    try:
+        db.commit()
+        db.refresh(client_profile)
+        return client_profile
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify client: {str(e)}"
+        )
 
 @router.get("/clients/{client_id}/documents")
 def get_client_documents(
@@ -48,8 +266,487 @@ def get_client_documents(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+    """Get all documents for a specific client"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
     documents = db.query(Document).filter(Document.client_id == client_id).all()
     return documents
+
+@router.get("/dashboard_stats")
+def get_dashboard_stats(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get dashboard statistics for admin"""
+    total_clients = db.query(ClientProfile).count()
+    new_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.new).count()
+    verified_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.verified).count()
+    active_jobs = db.query(JobOpportunity).filter(JobOpportunity.is_active == True).count()
+    total_applications = db.query(JobApplication).count()
+    
+    return {
+        "total_clients": total_clients,
+        "new_clients": new_clients,
+        "verified_clients": verified_clients,
+        "active_jobs": active_jobs,
+        "total_applications": total_applications
+    }
+
+@router.get("/clients/{client_id}/onboarding-status")
+def get_client_onboarding_status(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Check client onboarding completion status"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    completion_status = _get_onboarding_completion(client_profile)
+    return {
+        "client_id": client_id,
+        "is_complete": completion_status["is_complete"],
+        "completion_percentage": completion_status["percentage"],
+        "missing_fields": completion_status["missing_fields"],
+        "status": client_profile.status
+    }
+
+def _check_onboarding_complete(profile: ClientProfile) -> bool:
+    """Check if onboarding is complete"""
+    required_fields = [
+        'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+        'phone_primary', 'address_current', 'emergency_contact_name',
+        'emergency_contact_phone', 'emergency_contact_relationship'
+    ]
+    
+    for field in required_fields:
+        if not getattr(profile, field, None):
+            return False
+    return True
+
+@router.post("/clients/{client_id}/documents/upload")
+def admin_upload_client_document(
+    client_id: str,
+    file: UploadFile = File(...),
+    document_type: str = "other",
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Admin uploads document for a specific client"""
+    # Verify client exists
+    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    try:
+        # Validate file type
+        allowed_types = [
+            "application/pdf", "image/jpeg", "image/png", "image/jpg",
+            "application/msword", 
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF, DOC, DOCX, and image files are allowed"
+            )
+        
+        # Create uploads directory
+        upload_dir = Path("uploads/client_documents")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = file.filename.split(".")[-1]
+        filename = f"{client_id}_{document_type}_{uuid.uuid4().hex}.{file_extension}"
+        file_path = upload_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Create document record
+        document = Document(
+            id=str(uuid.uuid4()),
+            client_id=client_id,
+            document_type=document_type,
+            file_name=file.filename,
+            file_url=f"/api/uploads/client_documents/{filename}",
+            file_size=os.path.getsize(file_path),
+            mime_type=file.content_type,
+            uploaded_at=datetime.utcnow()
+        )
+        
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+        
+        return {
+            "id": document.id,
+            "document_type": document.document_type,
+            "file_name": document.file_name,
+            "file_url": document.file_url,
+            "message": "Document uploaded successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload document: {str(e)}"
+        )
+
+@router.get("/clients/{client_id}/documents")
+def get_client_documents(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all documents for a specific client"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Get all documents for this client
+    documents = db.query(Document).filter(Document.client_id == client_id).all()
+    
+    return [{
+        "id": doc.id,
+        "document_type": doc.document_type,
+        "file_name": doc.file_name,
+        "file_url": doc.file_url,
+        "file_size": doc.file_size,
+        "mime_type": doc.mime_type,
+        "is_verified": doc.is_verified,
+        "verified_by": doc.verified_by,
+        "verified_at": doc.verified_at,
+        "uploaded_at": doc.uploaded_at
+    } for doc in documents]
+
+@router.delete("/clients/{client_id}/documents/{document_id}")
+def delete_client_document(
+    client_id: str,
+    document_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a specific document"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Find and delete the document
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.client_id == client_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Delete the physical file
+    try:
+        file_path = f"./uploads/client_documents/{document.file_name}"
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Warning: Could not delete physical file: {e}")
+    
+    # Delete from database
+    db.delete(document)
+    db.commit()
+    
+    return {"message": "Document deleted successfully"}
+
+@router.put("/documents/{document_id}/verify")
+def verify_document(
+    document_id: str,
+    verification_data: dict,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Verify or unverify a document"""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    is_verified = verification_data.get("is_verified", False)
+    
+    document.is_verified = is_verified
+    document.verified_by = admin_user.id if is_verified else None
+    document.verified_at = datetime.utcnow() if is_verified else None
+    
+    db.commit()
+    
+    return {
+        "message": f"Document {'verified' if is_verified else 'unverified'} successfully",
+        "document_id": document.id,
+        "is_verified": document.is_verified
+    }
+
+@router.put("/clients/{client_id}/status")
+def update_client_status(
+    client_id: str,
+    status_data: dict,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update client status"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    new_status = status_data.get("status")
+    if not new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status is required"
+        )
+    
+    # Validate status
+    valid_statuses = ["new", "verified", "traveled", "returned"]
+    if new_status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    # Update status
+    old_status = client.status
+    client.status = new_status
+    client.updated_at = datetime.utcnow()
+    client.last_modified_by = admin_user.id
+    
+    db.commit()
+    
+    return {
+        "message": f"Client status updated from '{old_status}' to '{new_status}'",
+        "client_id": client.id,
+        "old_status": old_status,
+        "new_status": new_status,
+        "updated_by": admin_user.email
+    }
+
+@router.delete("/clients/{client_id}")
+def delete_client(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a client and all associated data"""
+    # Verify client exists
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    
+    # Get the associated user
+    user = db.query(User).filter(User.id == client.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Associated user not found"
+        )
+    
+    try:
+        # Store client info for response
+        client_name = f"{client.first_name or ''} {client.last_name or ''}".strip() or "Unnamed Client"
+        user_email = user.email
+        
+        # Delete associated documents first
+        documents = db.query(Document).filter(Document.client_id == client_id).all()
+        for doc in documents:
+            # Delete physical files
+            try:
+                if doc.file_url and doc.file_url.startswith('/uploads/'):
+                    file_path = f".{doc.file_url}"
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+            except Exception as e:
+                print(f"Warning: Could not delete file {doc.file_url}: {e}")
+            
+            # Delete document record
+            db.delete(doc)
+        
+        # Delete profile photo if exists
+        if client.profile_photo_url:
+            try:
+                photo_path = f".{client.profile_photo_url}"
+                if os.path.exists(photo_path):
+                    os.remove(photo_path)
+            except Exception as e:
+                print(f"Warning: Could not delete profile photo: {e}")
+        
+        # Delete any chat messages
+        chat_messages = db.query(ChatMessage).filter(
+            (ChatMessage.sender_id == user.id) | (ChatMessage.receiver_id == user.id)
+        ).all()
+        for message in chat_messages:
+            db.delete(message)
+        
+        # Delete any job applications
+        applications = db.query(JobApplication).filter(JobApplication.client_id == client_id).all()
+        for app in applications:
+            db.delete(app)
+        
+        # Delete the client profile
+        db.delete(client)
+        
+        # Delete the user account
+        db.delete(user)
+        
+        # Commit all deletions
+        db.commit()
+        
+        return {
+            "message": f"Client '{client_name}' and all associated data deleted successfully",
+            "deleted_client": {
+                "id": client_id,
+                "name": client_name,
+                "email": user_email
+            },
+            "deleted_by": admin_user.email,
+            "deleted_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete client: {str(e)}"
+        )
+
+@router.post("/clients/{client_id}/photo")
+def upload_client_profile_photo_admin(
+    client_id: str,
+    file: UploadFile = File(...),
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Upload profile photo for a client (admin only)"""
+    # Get the client
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+        
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JPEG and PNG images are allowed"
+        )
+    
+    try:
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads/profile_photos")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Delete old profile photo if exists
+        if client.profile_photo_url:
+            old_photo_path = f".{client.profile_photo_url}"
+            if os.path.exists(old_photo_path):
+                try:
+                    os.remove(old_photo_path)
+                except Exception as e:
+                    print(f"Warning: Could not delete old profile photo: {e}")
+        
+        # Generate unique filename
+        file_extension = file.filename.split(".")[-1]
+        filename = f"{client_id}_{uuid.uuid4().hex}.{file_extension}"
+        file_path = upload_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Update client profile with photo URL (include /api prefix for proper routing)
+        client.profile_photo_url = f"/api/uploads/profile_photos/{filename}"
+        client.updated_at = datetime.utcnow()
+        client.last_modified_by = admin_user.id
+        
+        db.commit()
+        db.refresh(client)
+        
+        return {
+            "profile_photo_url": client.profile_photo_url, 
+            "message": "Client profile photo uploaded successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload client profile photo: {str(e)}"
+        )
+
+def _get_onboarding_completion(profile: ClientProfile) -> dict:
+    """Get detailed onboarding completion status"""
+    required_fields = [
+        'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+        'phone_primary', 'address_current', 'emergency_contact_name',
+        'emergency_contact_phone', 'emergency_contact_relationship'
+    ]
+    
+    optional_fields = [
+        'middle_name', 'nin', 'passport_number', 'passport_expiry',
+        'phone_secondary', 'address_permanent'
+    ]
+    
+    filled_required = 0
+    missing_fields = []
+    
+    for field in required_fields:
+        if getattr(profile, field, None):
+            filled_required += 1
+        else:
+            missing_fields.append(field)
+    
+    filled_optional = sum(1 for field in optional_fields if getattr(profile, field, None))
+    
+    total_fields = len(required_fields) + len(optional_fields)
+    total_filled = filled_required + filled_optional
+    
+    return {
+        "is_complete": len(missing_fields) == 0,
+        "percentage": round((total_filled / total_fields) * 100, 1),
+        "missing_fields": missing_fields,
+        "required_completed": filled_required,
+        "optional_completed": filled_optional
+    }

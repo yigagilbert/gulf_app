@@ -1,594 +1,536 @@
 /**
- * Professional API Service for Job Placement System
- * Handles all HTTP requests with proper error handling, authentication, and typing
+ * Professional API Service for Gulf Consultants Job Placement System
+ * Enhanced with robust session management and token handling
  */
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  BASE_URL: 'https://consultportal.preview.emergentagent.com/api', // Force production backend URL
   TIMEOUT: 30000, // 30 seconds
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
     'image/jpeg',
     'image/png', 
+    'image/jpg',
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ]
+  ],
+  MAX_RETRIES: 3,
+  RETRY_DELAYS: [1000, 2000, 4000], // Exponential backoff
+  QUEUE_LIMIT: 10
 };
 
+// Debug logging for environment configuration
+console.log('🔧 API Configuration:', {
+  BASE_URL: API_CONFIG.BASE_URL,
+  ENV_VAR: process.env.REACT_APP_BACKEND_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+
 /**
- * Custom API Error class for better error handling
+ * Enhanced API Error class with better categorization
  */
 class APIError extends Error {
-  constructor(message, status, response = null) {
+  constructor(message, status, response = null, type = 'generic') {
     super(message);
     this.name = 'APIError';
     this.status = status;
     this.response = response;
+    this.type = type;
+    this.timestamp = new Date().toISOString();
+  }
+
+  get isNetworkError() {
+    return this.type === 'network' || this.status === 0;
+  }
+
+  get isAuthError() {
+    return this.status === 401 || this.status === 403;
+  }
+
+  get isValidationError() {
+    return this.status === 422 || this.status === 400;
+  }
+
+  get isServerError() {
+    return this.status >= 500;
+  }
+
+  get isRetryable() {
+    return this.isNetworkError || this.isServerError || this.status === 429;
   }
 }
 
 /**
- * Professional API Service Class
+ * Request Queue Manager for handling concurrent requests
  */
-class APIService {
-  /**
-   * Get job applications for current client
-   * @returns {Promise} Array of job applications
-   */
-  static async getMyApplications() {
-    return this.request('/jobs/applications');
+class RequestQueue {
+  constructor(limit = API_CONFIG.QUEUE_LIMIT) {
+    this.limit = limit;
+    this.running = [];
+    this.queue = [];
   }
 
-  /**
-   * Get all job applications (admin only)
-   * @returns {Promise} Array of job applications
-   */
-  static async getAllApplications() {
-    return this.request('/jobs/admin/applications');
-  }
-  /**
-   * Apply for a job (user)
-   * @param {string} jobId - Job ID
-   * @returns {Promise} Application response
-   */
-  static async applyForJob(jobId) {
-    return this.request(`/jobs/${jobId}/apply`, {
-      method: 'POST'
-    });
-  }
-  /**
-   * Update job (admin only)
-   * @param {string} jobId - Job ID
-   * @param {Object} jobData - Job data
-   * @returns {Promise} Updated job
-   */
-  static async updateJob(jobId, jobData) {
-    return this.request(`/jobs/${jobId}`, {
-      method: 'PUT',
-      body: JSON.stringify(jobData)
+  async add(requestFn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({
+        requestFn,
+        resolve,
+        reject
+      });
+      this.process();
     });
   }
 
-  /**
-   * Delete job (admin only)
-   * @param {string} jobId - Job ID
-   * @returns {Promise} Delete response
-   */
-  static async deleteJob(jobId) {
-    return this.request(`/jobs/${jobId}`, {
-      method: 'DELETE'
-    });
-  }
-  /**
-   * Get authentication token from localStorage
-   * @returns {string|null} The bearer token or null
-   */
-  static getAuthToken() {
-    try {
-      return localStorage.getItem('token');
-    } catch (error) {
-      console.warn('Failed to retrieve token from localStorage:', error);
-      return null;
+  async process() {
+    if (this.running.length >= this.limit || this.queue.length === 0) {
+      return;
     }
-  }
 
-  /**
-   * Set authentication token in localStorage
-   * @param {string} token - The JWT token
-   */
-  static setAuthToken(token) {
+    const { requestFn, resolve, reject } = this.queue.shift();
+    const runningItem = { resolve, reject };
+    this.running.push(runningItem);
+
     try {
-      if (token) {
-        localStorage.setItem('token', token);
-      } else {
-        localStorage.removeItem('token');
+      const result = await requestFn();
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    } finally {
+      const index = this.running.indexOf(runningItem);
+      if (index > -1) {
+        this.running.splice(index, 1);
       }
-    } catch (error) {
-      console.error('Failed to store token in localStorage:', error);
+      this.process(); // Process next item in queue
     }
+  }
+}
+
+/**
+ * Enhanced API Service with robust session management
+ */
+class APIServiceClass {
+  constructor() {
+    this.requestQueue = new RequestQueue();
+    this.authToken = null;
+    this.baseURL = API_CONFIG.BASE_URL;
+    this.requestId = 0;
+  }
+
+  /**
+   * Set authentication token
+   */
+  setAuthToken(token) {
+    this.authToken = token;
   }
 
   /**
    * Clear authentication token
    */
-  static clearAuthToken() {
-    this.setAuthToken(null);
+  clearAuthToken() {
+    this.authToken = null;
   }
 
   /**
-   * Build headers for API requests
-   * @param {Object} customHeaders - Additional headers
-   * @param {boolean} includeAuth - Whether to include auth token
-   * @returns {Object} Headers object
+   * Get current auth token
    */
-  static buildHeaders(customHeaders = {}, includeAuth = true) {
+  getAuthToken() {
+    return this.authToken;
+  }
+
+  /**
+   * Create request headers with authentication
+   */
+  createHeaders(customHeaders = {}) {
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...customHeaders
     };
 
-    if (includeAuth) {
-      const token = this.getAuthToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
     }
 
     return headers;
   }
 
   /**
-   * Handle API response and errors
-   * @param {Response} response - Fetch response object
-   * @returns {Promise} Parsed response data
+   * Handle response with comprehensive error handling
    */
-  static async handleResponse(response) {
+  async handleResponse(response, requestId) {
     const contentType = response.headers.get('content-type');
     
     try {
-      let data;
-      
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        data = await response.text();
-      }
-
       if (!response.ok) {
-        // Handle different error status codes
-        let errorMessage = 'An error occurred';
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errorData = null;
         
-        if (data && typeof data === 'object' && data.detail) {
-          errorMessage = data.detail;
-        } else if (typeof data === 'string') {
-          errorMessage = data;
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.warn(`[${requestId}] Failed to parse error response as JSON:`, parseError);
+          }
         }
 
-        // Handle specific status codes
-        switch (response.status) {
-          case 401:
-            this.clearAuthToken();
-            errorMessage = 'Authentication failed. Please login again.';
-            break;
-          case 403:
-            errorMessage = 'Access denied. Insufficient permissions.';
-            break;
-          case 404:
-            errorMessage = 'Resource not found.';
-            break;
-          case 422:
-            errorMessage = 'Validation error. Please check your input.';
-            break;
-          case 429:
-            errorMessage = 'Too many requests. Please try again later.';
-            break;
-          case 500:
-            errorMessage = 'Server error. Please try again later.';
-            break;
+        // Determine error type
+        let errorType = 'generic';
+        if (response.status === 0 || !response.status) {
+          errorType = 'network';
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (response.status === 401) {
+          errorType = 'auth';
+          errorMessage = 'Authentication required. Please log in again.';
+        } else if (response.status === 403) {
+          errorType = 'auth';
+          errorMessage = 'Access denied. You do not have permission to perform this action.';
+        } else if (response.status === 404) {
+          errorMessage = 'Resource not found.';
+        } else if (response.status >= 500) {
+          errorType = 'server';
+          errorMessage = 'Server error. Please try again later.';
         }
 
-        throw new APIError(errorMessage, response.status, data);
+        throw new APIError(errorMessage, response.status, errorData, errorType);
       }
 
-      return data;
+      // Handle successful response
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
     } catch (error) {
       if (error instanceof APIError) {
         throw error;
       }
       
       // Handle parsing errors
-      throw new APIError(
-        'Failed to parse server response',
-        response.status,
-        null
-      );
+      console.error(`[${requestId}] Response parsing error:`, error);
+      throw new APIError('Failed to process server response', response.status, null, 'parse');
     }
   }
 
   /**
-   * Make HTTP request with timeout and error handling
-   * @param {string} endpoint - API endpoint
-   * @param {Object} options - Fetch options
-   * @returns {Promise} Response data
+   * Make HTTP request with retry logic and error handling
    */
-  static async request(endpoint, options = {}) {
-    const url = `${API_CONFIG.BASE_URL}${endpoint}`;
+  async _makeRequest(endpoint, options = {}) {
+    const requestId = ++this.requestId;
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
     
-    const defaultOptions = {
+    console.log(`[${requestId}] Making request to:`, url);
+
+    const requestOptions = {
       method: 'GET',
-      headers: this.buildHeaders(options.headers, options.includeAuth !== false),
+      headers: this.createHeaders(options.headers),
       ...options
     };
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
-
-    try {
-      const response = await fetch(url, {
-        ...defaultOptions,
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      return await this.handleResponse(response);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
-        throw new APIError('Request timeout', 408);
-      }
-      
-      if (error instanceof APIError) {
-        throw error;
-      }
-      
-      // Network or other errors
-      throw new APIError(
-        'Network error. Please check your connection.',
-        0,
-        null
-      );
-    }
-  }
-
-  /**
-   * Validate file for upload
-   * @param {File} file - File to validate
-   * @throws {APIError} If file is invalid
-   */
-  static validateFile(file) {
-    if (!file) {
-      throw new APIError('No file provided', 400);
+    // Don't set Content-Type for FormData
+    if (options.body instanceof FormData) {
+      delete requestOptions.headers['Content-Type'];
     }
 
-    if (file.size > API_CONFIG.MAX_FILE_SIZE) {
-      throw new APIError(
-        `File size exceeds limit (${API_CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`,
-        400
-      );
-    }
-
-    if (!API_CONFIG.ALLOWED_FILE_TYPES.includes(file.type)) {
-      throw new APIError(
-        `File type not allowed. Allowed types: ${API_CONFIG.ALLOWED_FILE_TYPES.join(', ')}`,
-        400
-      );
-    }
-  }
-
-  /**
-   * Upload file with progress tracking
-   * @param {string} endpoint - Upload endpoint
-   * @param {File} file - File to upload
-   * @param {Object} additionalData - Additional form data
-   * @param {Function} onProgress - Progress callback
-   * @returns {Promise} Upload response
-   */
-  static async uploadFile(endpoint, file, additionalData = {}, onProgress = null) {
-    this.validateFile(file);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Add additional data to form
-    Object.entries(additionalData).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        formData.append(key, value.toString());
-      }
-    });
-
-    const headers = {};
-    const token = this.getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const url = `${API_CONFIG.BASE_URL}${endpoint}`;
+    let lastError;
     
-    try {
-      // Use XMLHttpRequest for progress tracking if callback provided
-      if (onProgress && typeof onProgress === 'function') {
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          
-          xhr.upload.addEventListener('progress', (event) => {
-            if (event.lengthComputable) {
-              const progress = Math.round((event.loaded / event.total) * 100);
-              onProgress(progress);
-            }
-          });
-
-          xhr.addEventListener('load', async () => {
-            try {
-              const response = {
-                ok: xhr.status >= 200 && xhr.status < 300,
-                status: xhr.status,
-                headers: {
-                  get: (name) => xhr.getResponseHeader(name)
-                },
-                json: () => Promise.resolve(JSON.parse(xhr.responseText)),
-                text: () => Promise.resolve(xhr.responseText)
-              };
-              
-              const result = await this.handleResponse(response);
-              resolve(result);
-            } catch (error) {
-              reject(error);
-            }
-          });
-
-          xhr.addEventListener('error', () => {
-            reject(new APIError('Upload failed', 0));
-          });
-
-          xhr.addEventListener('timeout', () => {
-            reject(new APIError('Upload timeout', 408));
-          });
-
-          xhr.open('POST', url);
-          Object.entries(headers).forEach(([key, value]) => {
-            xhr.setRequestHeader(key, value);
-          });
-          xhr.timeout = API_CONFIG.TIMEOUT;
-          xhr.send(formData);
-        });
-      } else {
-        // Use fetch for simple uploads
+    for (let attempt = 0; attempt <= API_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[${requestId}] Attempt ${attempt + 1}/${API_CONFIG.MAX_RETRIES + 1}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+        
         const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: formData
+          ...requestOptions,
+          signal: controller.signal
         });
-
-        return await this.handleResponse(response);
+        
+        clearTimeout(timeoutId);
+        
+        const result = await this.handleResponse(response, requestId);
+        console.log(`[${requestId}] Request successful`);
+        return result;
+        
+      } catch (error) {
+        lastError = error;
+        console.error(`[${requestId}] Attempt ${attempt + 1} failed:`, error.message);
+        
+        // Don't retry auth errors or validation errors
+        if (error.isAuthError || error.isValidationError || !error.isRetryable) {
+          break;
+        }
+        
+        // Don't retry on the last attempt
+        if (attempt < API_CONFIG.MAX_RETRIES) {
+          const delay = API_CONFIG.RETRY_DELAYS[attempt] || API_CONFIG.RETRY_DELAYS[API_CONFIG.RETRY_DELAYS.length - 1];
+          console.log(`[${requestId}] Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
-    } catch (error) {
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw new APIError('Upload failed', 0);
     }
-  }
-
-  /**
-   * Download file as blob
-   * @param {string} endpoint - Download endpoint
-   * @param {string} filename - Optional filename for download
-   * @returns {Promise<Blob>} File blob
-   */
-  static async downloadFile(endpoint, filename = null) {
-    const url = `${API_CONFIG.BASE_URL}${endpoint}`;
-    const headers = {};
     
-    const token = this.getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    console.error(`[${requestId}] All attempts failed`);
+    throw lastError || new APIError('Request failed after all retry attempts', 0, null, 'network');
+  }
 
+  /**
+   * Queue request for processing
+   */
+  async request(endpoint, options = {}) {
+    return this.requestQueue.add(() => this._makeRequest(endpoint, options));
+  }
+
+  /**
+   * Authentication endpoints
+   */
+  async login(credentials, isClient = false) {
     try {
-      const response = await fetch(url, { headers });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new APIError(
-          `Download failed: ${errorText || 'Unknown error'}`,
-          response.status
-        );
-      }
-
-      const blob = await response.blob();
+      const endpoint = isClient ? '/auth/login/client' : '/auth/login/admin';
+      const response = await this.request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(credentials)
+      });
       
-      // Trigger download if filename provided
-      if (filename) {
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(downloadUrl);
+      if (response && response.access_token) {
+        this.setAuthToken(response.access_token);
       }
-
-      return blob;
+      
+      return response;
     } catch (error) {
-      if (error instanceof APIError) {
-        throw error;
+      console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async register(userData, isClient = true) {
+    try {
+      const endpoint = isClient ? '/auth/register/client' : '/auth/register/admin';
+      const response = await this.request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      
+      if (response && response.access_token) {
+        this.setAuthToken(response.access_token);
       }
-      throw new APIError('Download failed', 0);
+      
+      return response;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
   }
 
-  // ============ AUTH ENDPOINTS ============
-  
   /**
-   * User registration
-   * @param {Object} userData - {email, password}
-   * @returns {Promise} User data
+   * Profile endpoints
    */
-  static async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      includeAuth: false
-    });
-  }
-
-  /**
-   * User login
-   * @param {Object} credentials - {email, password}
-   * @returns {Promise} Login response with token
-   */
-  static async login(credentials) {
-    const response = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-      includeAuth: false
-    });
-
-    // Store token automatically
-    if (response.access_token) {
-      this.setAuthToken(response.access_token);
-    }
-
-    return response;
-  }
-
-  /**
-   * Logout user
-   */
-  static async logout() {
-    this.clearAuthToken();
-    // Could add server-side logout endpoint call here if needed
-  }
-
-  // ============ PROFILE ENDPOINTS ============
-
-  /**
-   * Get current user profile
-   * @returns {Promise} Profile data
-   */
-  static async getProfile() {
+  async getProfile() {
     return this.request('/profile/me');
   }
 
-  /**
-   * Update user profile
-   * @param {Object} profileData - Profile fields to update
-   * @returns {Promise} Updated profile data
-   */
-  static async updateProfile(profileData) {
+  async updateProfile(profileData) {
     return this.request('/profile/me', {
       method: 'PUT',
       body: JSON.stringify(profileData)
     });
   }
 
-  /**
-   * Get basic profile info (debugging endpoint)
-   * @returns {Promise} Basic profile info
-   */
-  static async getProfileBasic() {
-    return this.request('/profile/me/basic');
+  async uploadProfilePhoto(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request('/profile/me/photo', {
+      method: 'POST',
+      body: formData
+    });
   }
 
-  // ============ DOCUMENT ENDPOINTS ============
-
-  /**
-   * Upload document
-   * @param {File} file - Document file
-   * @param {string} documentType - Type of document
-   * @param {Function} onProgress - Progress callback
-   * @returns {Promise} Upload response
-   */
-  static async uploadDocument(file, documentType, onProgress = null) {
-    return this.uploadFile('/documents/upload', file, { document_type: documentType }, onProgress);
+  async getOnboardingStatus() {
+    return this.request('/profile/me/onboarding-status');
   }
 
   /**
-   * Get user's documents
-   * @returns {Promise} Array of documents
+   * Document endpoints
    */
-  static async getDocuments() {
+  async getDocuments() {
     return this.request('/documents/me');
   }
 
-  /**
-   * Download document
-   * @param {string} documentId - Document ID
-   * @param {string} filename - Optional filename
-   * @returns {Promise<Blob>} Document blob
-   */
-  static async downloadDocument(documentId, filename = null) {
-    return this.downloadFile(`/documents/download/${documentId}`, filename);
-  }
-
-  // ============ JOB ENDPOINTS ============
-
-  /**
-   * Get available jobs
-   * @param {Object} params - Query parameters {skip, limit, is_active}
-   * @returns {Promise} Array of jobs
-   */
-  static async getJobs(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const endpoint = queryString ? `/jobs?${queryString}` : '/jobs';
-    return this.request(endpoint);
-  }
-
-  /**
-   * Create job opportunity (admin only)
-   * @param {Object} jobData - Job data
-   * @returns {Promise} Created job
-   */
-  static async createJob(jobData) {
-    return this.request('/jobs', {
+  async uploadDocument(file, documentType) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', documentType);
+    
+    return this.request('/documents/upload', {
       method: 'POST',
-      body: JSON.stringify(jobData)
+      body: formData
     });
   }
 
-  // ============ ADMIN ENDPOINTS ============
-
   /**
-   * Get all clients (admin only)
-   * @param {Object} params - Query parameters {skip, limit, status}
-   * @returns {Promise} Array of clients
+   * Job endpoints
    */
-  static async getClients(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const endpoint = queryString ? `/admin/clients?${queryString}` : '/admin/clients';
-    return this.request(endpoint);
+  async getJobs(page = 1, limit = 20) {
+    return this.request(`/jobs?page=${page}&limit=${limit}`);
+  }
+
+  async getJob(jobId) {
+    return this.request(`/jobs/${jobId}`);
+  }
+
+  async applyForJob(jobId, applicationData = {}) {
+    return this.request(`/jobs/${jobId}/apply`, {
+      method: 'POST',
+      body: JSON.stringify(applicationData)
+    });
+  }
+
+  async getMyApplications() {
+    return this.request('/applications/me');
   }
 
   /**
-   * Verify client (admin only)
-   * @param {string} clientId - Client ID
-   * @param {string} verificationNotes - Optional notes
-   * @returns {Promise} Updated client
+   * Chat endpoints
    */
-  static async verifyClient(clientId, verificationNotes = null) {
-    const body = verificationNotes ? JSON.stringify({ verification_notes: verificationNotes }) : '{}';
-    return this.request(`/admin/clients/${clientId}/verify`, {
+  async sendChatMessage(receiverId, content) {
+    return this.request('/chat/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        receiver_id: receiverId,
+        content: content
+      })
+    });
+  }
+
+  async getChatHistory(userId) {
+    return this.request(`/chat/history?with_user_id=${userId}`);
+  }
+
+  async getAvailableAdmins() {
+    return this.request('/chat/admins');
+  }
+
+  /**
+   * Admin endpoints
+   */
+  async getClients() {
+    return this.request('/admin/clients');
+  }
+
+  async createClient(clientData) {
+    return this.request('/admin/clients/create', {
+      method: 'POST',
+      body: JSON.stringify(clientData)
+    });
+  }
+
+  async getClientProfile(clientId) {
+    return this.request(`/admin/clients/${clientId}`);
+  }
+
+  async updateClientProfile(clientId, profileData) {
+    return this.request(`/admin/clients/${clientId}/onboard`, {
       method: 'PUT',
-      body
+      body: JSON.stringify(profileData)
     });
   }
 
-  /**
-   * Get client documents (admin only)
-   * @param {string} clientId - Client ID
-   * @returns {Promise} Array of client documents
-   */
-  static async getClientDocuments(clientId) {
+  async uploadClientDocument(clientId, file, documentType) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request(`/admin/clients/${clientId}/documents/upload?document_type=${documentType}`, {
+      method: 'POST',
+      body: formData,
+      skipContentType: true
+    });
+  }
+
+  async getClientDocuments(clientId) {
     return this.request(`/admin/clients/${clientId}/documents`);
+  }
+
+  async deleteClientDocument(clientId, documentId) {
+    return this.request(`/admin/clients/${clientId}/documents/${documentId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async verifyDocument(documentId, isVerified) {
+    return this.request(`/admin/documents/${documentId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_verified: isVerified })
+    });
+  }
+
+  async updateClientStatus(clientId, status) {
+    return this.request(`/admin/clients/${clientId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: status })
+    });
+  }
+
+  async deleteClient(clientId) {
+    return this.request(`/admin/clients/${clientId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async uploadClientProfilePhoto(clientId, formData) {
+    return this.request(`/admin/clients/${clientId}/photo`, {
+      method: 'POST',
+      body: formData,
+      skipContentType: true
+    });
+  }
+
+  async getAdminInbox() {
+    return this.request('/chat/admin/inbox');
+  }
+
+  async getAllApplications() {
+    return this.request('/admin/applications');
+  }
+
+  /**
+   * File validation utilities
+   */
+  validateFile(file) {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+    
+    if (file.size > API_CONFIG.MAX_FILE_SIZE) {
+      throw new Error(`File size exceeds ${API_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB limit`);
+    }
+    
+    if (!API_CONFIG.ALLOWED_FILE_TYPES.includes(file.type)) {
+      throw new Error(`File type ${file.type} is not allowed`);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Health check
+   */
+  async healthCheck() {
+    try {
+      const response = await this.request('/health', { method: 'GET' });
+      return response;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return { status: 'error', message: error.message };
+    }
   }
 }
 
-// Export both the class and error for convenience
+// Create singleton instance
+const APIService = new APIServiceClass();
+
+// Export for convenience
 export { APIError };
 export default APIService;

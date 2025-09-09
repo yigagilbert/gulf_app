@@ -15,12 +15,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_jwt_secret():
     """Get JWT secret key with fallback for development"""
     # Try different possible environment variable names
-    secret_key = (
-        os.getenv("JWT_SECRET_KEY") or 
-        os.getenv("SECRET_KEY") or 
-        os.getenv("JWT_SECRET")
-    )
-    
+    secret_key =  os.getenv("SECRET_KEY", "qyvUhnfOstdZTFD_5OTFmDxdipvdz_3yfUsy8MogLRI")
+
     if not secret_key:
         if os.getenv("ENVIRONMENT") == "production":
             raise ValueError(

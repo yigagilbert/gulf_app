@@ -1,270 +1,665 @@
-import React, { useState } from 'react';
-import { Download, Check, X, Search } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Users, UserPlus, Search, Filter, Eye, Edit, Check, X, 
+  ChevronDown, Mail, Phone, Calendar, AlertCircle, 
+  RefreshCw, MoreHorizontal, Settings, Upload, FileText, Trash2
+} from 'lucide-react';
 import APIService from '../services/APIService';
+import AdminClientCreation from './AdminClientCreation';
+import AdminDocumentUpload from './AdminDocumentUpload';
+import AdminClientDocuments from './AdminClientDocuments';
+import AdminClientStatusUpdate from './AdminClientStatusUpdate';
+import AdminClientDeleteConfirmation from './AdminClientDeleteConfirmation';
+import PDFViewer from './PDFViewer';
+import LoadingSpinner from './LoadingSpinner';
+import Toast from './Toast';
 
-const AdminClientsTab = ({ clients, onVerifyClient, onDownloadDocument }) => {
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [clientDocuments, setClientDocuments] = useState([]);
+const AdminClientsTab = () => {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [loadingDocuments, setLoadingDocuments] = useState(false);
-  const [error, setError] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [showStatusUpdate, setShowStatusUpdate] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showPDFViewer, setShowPDFViewer] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [clientDocuments, setClientDocuments] = useState({});
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const clientsData = await APIService.request('/admin/clients');
+      setClients(clientsData || []);
+    } catch (err) {
+      setError('Failed to load clients');
+      console.error('Load clients error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleClientCreated = (newClient) => {
+    setSuccess(`Client account created successfully for ${newClient.email}`);
+    loadClients(); // Refresh the list
+    setTimeout(() => setSuccess(null), 5000);
+  };
+
+  const handleVerifyClient = async (clientId, status, notes = '') => {
+    try {
+      await APIService.request(`/admin/clients/${clientId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: status,
+          verification_notes: notes
+        })
+      });
+      
+      setSuccess(`Client ${status === 'verified' ? 'verified' : 'status updated'} successfully`);
+      loadClients();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update client status');
+      console.error('Verify client error:', err);
+    }
+  };
 
   const filteredClients = clients.filter(client => {
-    const matchesSearch = (client.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          client.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          client.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = !statusFilter || client.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesSearch = !searchTerm || (
+      client.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    return matchesStatus && matchesSearch;
   });
 
+  const statusOptions = ['new', 'verified', 'traveled', 'returned'];
+  const statusColors = {
+    new: 'bg-blue-100 text-blue-800',
+    verified: 'bg-green-100 text-green-800',
+    traveled: 'bg-yellow-100 text-yellow-800',
+    returned: 'bg-purple-100 text-purple-800'
+  };
+
+  const statusLabels = {
+    new: 'New',
+    verified: 'Verified',
+    traveled: 'Traveled',
+    returned: 'Returned'
+  };
+
+  const handleDocumentUploaded = async (document) => {
+    setSuccess(`Document uploaded successfully`);
+    // Refresh client documents
+    await loadClientDocuments(selectedClient.id);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleStatusUpdated = async (updateData) => {
+    setSuccess(`Client status updated from ${updateData.oldStatus} to ${updateData.newStatus}`);
+    // Refresh clients list to show updated status
+    await loadClients();
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleClientDeleted = async (deleteData) => {
+    setSuccess(`Client '${deleteData.clientName}' has been permanently deleted`);
+    // Refresh clients list to remove deleted client
+    await loadClients();
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
   const loadClientDocuments = async (clientId) => {
-    setLoadingDocuments(true);
-    setError(null);
     try {
-      // FIXED: Use the proper APIService method
-      const documents = await APIService.getClientDocuments(clientId);
-      setClientDocuments(documents);
-    } catch (error) {
-      console.error('Error loading client documents:', error);
-      setError(error.message);
-      setClientDocuments([]); // Reset to empty array on error
-    } finally {
-      setLoadingDocuments(false);
+      const documents = await APIService.request(`/admin/clients/${clientId}/documents`);
+      setClientDocuments(prev => ({ ...prev, [clientId]: documents }));
+    } catch (err) {
+      console.error('Failed to load client documents:', err);
     }
   };
 
-  const handleClientSelect = (client) => {
-    setSelectedClient(client);
-    if (client) {
-      loadClientDocuments(client.id);
-    }
+  const handleViewDocument = (document) => {
+    const fileUrl = `${process.env.REACT_APP_BACKEND_URL}${document.file_path}`;
+    setSelectedDocument({
+      ...document,
+      url: fileUrl
+    });
+    setShowPDFViewer(true);
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      new: 'bg-gray-100 text-gray-800',
-      under_review: 'bg-yellow-100 text-yellow-800',
-      verified: 'bg-green-100 text-green-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      placed: 'bg-purple-100 text-purple-800',
-      traveled: 'bg-indigo-100 text-indigo-800',
-      inactive: 'bg-red-100 text-red-800'
-    };
-    return colors[status] || colors.new;
+  const getDisplayName = (client) => {
+    if (client.first_name || client.last_name) {
+      return `${client.first_name || ''} ${client.last_name || ''}`.trim();
+    }
+    return client.user_email || 'Unknown';
   };
 
-  // Add loading state for documents section
-  const renderDocumentsSection = () => {
-    if (loadingDocuments) {
-      return <div className="text-center py-4">Loading documents...</div>;
-    }
-
-    if (error) {
-      return (
-        <div className="text-red-600 text-sm py-4">
-          Error loading documents: {error}
-        </div>
-      );
-    }
-
-    if (clientDocuments.length === 0) {
-      return <p className="text-gray-500 text-sm">No documents uploaded</p>;
-    }
-
-    return (
-      <div className="space-y-2">
-        {clientDocuments.map(doc => (
-          // Your existing document JSX
-          <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Documents</h4>
-                {clientDocuments.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No documents uploaded</p>
-                ) : (
-                  <div className="space-y-2">
-                    {clientDocuments.map(doc => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{doc.document_type.replace('_', ' ').toUpperCase()}</p>
-                          <p className="text-xs text-gray-600">{doc.file_name}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                            doc.is_verified 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {doc.is_verified ? 'Verified' : 'Pending'}
-                          </span>
-                          <button
-                            onClick={() => onDownloadDocument(doc.id, doc.file_name)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-            </div>
-        ))}
-      </div>
-    );
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
   };
+
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-6 border-b">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Client Management</h2>
-        
-        {/* Search and Filter */}
+    <div className="space-y-6">
+      {error && <Toast type="error" message={error} />}
+      {success && <Toast type="success" message={success} />}
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Client Management</h2>
+          <p className="text-gray-600 mt-1">
+            Manage client accounts, onboarding, and verification status
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <UserPlus className="h-5 w-5 mr-2" />
+          Create Client
+        </button>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
-              placeholder="Search clients..."
+              placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none bg-white pl-4 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Statuses</option>
+              {statusOptions.map(status => (
+                <option key={status} value={status}>
+                  {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+          </div>
+          
+          <button
+            onClick={loadClients}
+            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <option value="">All Statuses</option>
-            <option value="new">New</option>
-            <option value="under_review">Under Review</option>
-            <option value="verified">Verified</option>
-            <option value="in_progress">In Progress</option>
-            <option value="placed">Placed</option>
-            <option value="traveled">Traveled</option>
-          </select>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
         </div>
       </div>
 
-      <div className="flex h-96">
-        {/* Client List */}
-        <div className="w-1/2 border-r overflow-y-auto">
-          {filteredClients.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No clients found.</p>
-          ) : (
-            <div className="divide-y">
-              {filteredClients.map(client => (
-                <div
-                  key={client.id}
-                  onClick={() => handleClientSelect(client)}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 ${
-                    selectedClient?.id === client.id ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">
-                        {client.first_name} {client.last_name}
-                      </h3>
-                      <p className="text-sm text-gray-600">{client.user?.email}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Joined: {new Date(client.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
-                      {client.status?.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statusOptions.map(status => {
+          const count = clients.filter(c => c.status === status).length;
+          return (
+            <div key={status} className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    {statusLabels[status] || status}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">{count}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Client Details */}
-        <div className="w-1/2 p-4 overflow-y-auto">
-          {selectedClient ? (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Client Details</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Full Name</label>
-                    <p className="text-gray-900">
-                      {selectedClient.first_name} {selectedClient.middle_name} {selectedClient.last_name}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Email</label>
-                    <p className="text-gray-900">{selectedClient.user?.email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Phone</label>
-                    <p className="text-gray-900">{selectedClient.phone_primary || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">NIN</label>
-                    <p className="text-gray-900">{selectedClient.nin || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Passport</label>
-                    <p className="text-gray-900">{selectedClient.passport_number || 'Not provided'}</p>
-                  </div>
+                <div className={`p-2 rounded-lg ${statusColors[status]}`}>
+                  <Users className="h-5 w-5" />
                 </div>
               </div>
+            </div>
+          );
+        })}
+      </div>
 
-              {/* Documents */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Documents</h4>
-                {clientDocuments.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No documents uploaded</p>
-                ) : (
-                  <div className="space-y-2">
-                    {clientDocuments.map(doc => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{doc.document_type.replace('_', ' ').toUpperCase()}</p>
-                          <p className="text-xs text-gray-600">{doc.file_name}</p>
+      {/* Clients Table - Desktop */}
+      <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-12 text-center">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 mb-2">No clients found</p>
+                    {searchTerm || statusFilter ? (
+                      <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
+                    ) : (
+                      <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        Create your first client
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filteredClients.map((client) => (
+                  <tr key={client.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          {client.profile_photo_url ? (
+                            <img 
+                              src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                              alt={getDisplayName(client)}
+                              className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                            {getDisplayName(client).charAt(0).toUpperCase()}
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                            doc.is_verified 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {doc.is_verified ? 'Verified' : 'Pending'}
-                          </span>
-                          <button
-                            onClick={() => onDownloadDocument(doc.id, doc.file_name)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {getDisplayName(client)}
+                          </div>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            <Mail className="h-4 w-4 mr-1" />
+                            {client.user_email}
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Verification Actions */}
-              {selectedClient.status !== 'verified' && (
-                <div>
-                  <button
-                    onClick={() => onVerifyClient(selectedClient.id, 'Client verified by admin')}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
-                  >
-                    <Check className="h-4 w-4 mr-2" />
-                    Verify Client
-                  </button>
-                </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {statusLabels[client.status] || client.status || 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {client.created_at ? formatDate(client.created_at) : 'N/A'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            navigate(`/admin/clients/${client.id}`);
+                          }}
+                          className="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        
+                        {client.status === 'under_review' && (
+                          <>
+                            <button
+                              onClick={() => handleVerifyClient(client.id, 'verified')}
+                              className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
+                              title="Verify Client"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleVerifyClient(client.id, 'rejected', 'Rejected by admin')}
+                              className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                              title="Reject Client"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowDocumentUpload(true);
+                          }}
+                          className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
+                          title="Upload Document"
+                        >
+                          <Upload className="h-4 w-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowDocumentViewer(true);
+                          }}
+                          className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
+                          title="View Documents"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowStatusUpdate(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-700 p-1 rounded hover:bg-indigo-50"
+                          title="Update Status"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowDeleteConfirmation(true);
+                          }}
+                          className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        
+                        <button
+                          className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-50"
+                          title="More Actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">Select a client to view details</p>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* Client Cards - Mobile & Tablet */}
+      <div className="lg:hidden space-y-4">
+        {filteredClients.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {loading ? 'Loading clients...' : 'No clients found'}
+            </p>
+          </div>
+        ) : (
+          filteredClients.map((client) => (
+            <div key={client.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+              {/* Client Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 flex-shrink-0">
+                    {client.profile_photo_url ? (
+                      <img
+                        className="h-12 w-12 rounded-full object-cover"
+                        src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                        alt={getDisplayName(client)}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                      {getDisplayName(client).charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-medium text-gray-900 truncate">
+                      {getDisplayName(client)}
+                    </h3>
+                    <p className="text-sm text-gray-500 truncate">
+                      {client.user_email}
+                    </p>
+                    <div className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {statusLabels[client.status] || client.status || 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Client Info */}
+              <div className="mb-4 text-sm text-gray-600">
+                <p>Created: {client.created_at ? formatDate(client.created_at) : 'N/A'}</p>
+              </div>
+
+              {/* Action Buttons - Mobile */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    navigate(`/admin/clients/${client.id}`);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDocumentUpload(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDocumentViewer(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Documents</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowStatusUpdate(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Status</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setShowDeleteConfirmation(true);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Create Client Modal */}
+      <AdminClientCreation
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleClientCreated}
+      />
+
+      {/* Document Upload Modal */}
+      {selectedClient && (
+        <AdminDocumentUpload
+          isOpen={showDocumentUpload}
+          onClose={() => {
+            setShowDocumentUpload(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          onSuccess={handleDocumentUploaded}
+        />
+      )}
+
+      {/* Document Viewer Modal */}
+      {selectedClient && (
+        <AdminClientDocuments
+          isOpen={showDocumentViewer}
+          onClose={() => {
+            setShowDocumentViewer(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+        />
+      )}
+
+      {/* Status Update Modal */}
+      {selectedClient && (
+        <AdminClientStatusUpdate
+          isOpen={showStatusUpdate}
+          onClose={() => {
+            setShowStatusUpdate(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          currentStatus={selectedClient.status}
+          onSuccess={handleStatusUpdated}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {selectedClient && (
+        <AdminClientDeleteConfirmation
+          isOpen={showDeleteConfirmation}
+          onClose={() => {
+            setShowDeleteConfirmation(false);
+            setSelectedClient(null);
+          }}
+          clientId={selectedClient.id}
+          clientName={getDisplayName(selectedClient)}
+          clientEmail={selectedClient.user_email}
+          onSuccess={handleClientDeleted}
+        />
+      )}
+
+      {/* PDF Viewer */}
+      {selectedDocument && (
+        <PDFViewer
+          isOpen={showPDFViewer}
+          onClose={() => {
+            setShowPDFViewer(false);
+            setSelectedDocument(null);
+          }}
+          fileUrl={selectedDocument.url}
+          fileName={selectedDocument.file_name}
+        />
+      )}
+
+      {/* Client Documents Modal */}
+      {selectedClient && clientDocuments[selectedClient.id] && (
+        <div className="fixed inset-0 z-40 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setSelectedClient(null)}
+            ></div>
+            
+            <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Documents for {getDisplayName(selectedClient)}
+                </h3>
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clientDocuments[selectedClient.id]?.length === 0 ? (
+                  <div className="col-span-full text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No documents uploaded yet</p>
+                  </div>
+                ) : (
+                  clientDocuments[selectedClient.id]?.map((doc) => (
+                    <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <FileText className="h-8 w-8 text-blue-500" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{doc.document_type}</h4>
+                          <p className="text-sm text-gray-500">{doc.file_name}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewDocument(doc)}
+                        className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        View Document
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
