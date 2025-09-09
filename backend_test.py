@@ -1888,6 +1888,10 @@ def main():
     print("-" * 60)
     client_deletion_success = tester.test_gulf_consultants_client_deletion()
     
+    print("\n📸 ADMIN CLIENT PROFILE PHOTO UPLOAD TESTS")
+    print("-" * 60)
+    photo_upload_success = tester.test_admin_client_profile_photo_upload()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
