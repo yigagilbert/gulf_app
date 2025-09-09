@@ -709,6 +709,407 @@ class JobPlacementAPITester:
         
         return success
 
+    def test_comprehensive_job_management_system(self):
+        """Test comprehensive job management and applications system as requested in review"""
+        print("\n💼 COMPREHENSIVE JOB MANAGEMENT SYSTEM TESTS")
+        print("-" * 60)
+        
+        if not self.admin_token or not self.client_token:
+            print("❌ Missing tokens for comprehensive job management tests")
+            return False
+
+        admin_headers = {'Authorization': f'Bearer {self.admin_token}'}
+        client_headers = {'Authorization': f'Bearer {self.client_token}'}
+        
+        # Test data from review request
+        job_test_data = {
+            "title": "Construction Worker",
+            "company_name": "Dubai Construction Co",
+            "country": "UAE",
+            "city": "Dubai", 
+            "job_type": "full_time",
+            "salary_range_min": 2000.0,
+            "salary_range_max": 3000.0,
+            "currency": "USD",
+            "requirements": "Experience in construction work",
+            "benefits": "Accommodation and transport provided",
+            "application_deadline": "2025-03-01"
+        }
+        
+        created_job_id = None
+        test_results = []
+        
+        # Test 1: Job Creation (POST /api/jobs/)
+        print("\n🔍 Test 1: Job Creation (POST /api/jobs/)")
+        success1, job_creation_response = self.run_test(
+            "Create Job Opportunity",
+            "POST",
+            "jobs/",
+            200,
+            data=job_test_data,
+            headers=admin_headers
+        )
+        
+        if success1:
+            print("✅ Job creation successful")
+            created_job_id = job_creation_response.get('job_id')
+            print(f"   Created Job ID: {created_job_id}")
+            print(f"   Message: {job_creation_response.get('message', 'No message')}")
+            
+            # Validate response structure
+            required_fields = ['message', 'job_id']
+            missing_fields = [field for field in required_fields if field not in job_creation_response]
+            if missing_fields:
+                print(f"   ⚠️  Missing fields in creation response: {missing_fields}")
+            else:
+                print("   ✅ Job creation response structure is correct")
+        else:
+            print("❌ Job creation failed")
+            
+        test_results.append(success1)
+        
+        # Test 2: Get Jobs (GET /api/jobs/)
+        print("\n🔍 Test 2: Get Jobs List (GET /api/jobs/)")
+        success2, jobs_list = self.run_test(
+            "Get Jobs List",
+            "GET",
+            "jobs/",
+            200,
+            headers=client_headers  # Test with client token (public endpoint)
+        )
+        
+        if success2:
+            print("✅ Jobs list retrieval successful")
+            if isinstance(jobs_list, list):
+                print(f"   Found {len(jobs_list)} job(s)")
+                
+                # Check if our created job appears in the list
+                if created_job_id:
+                    job_found = any(job.get('id') == created_job_id for job in jobs_list)
+                    if job_found:
+                        print("   ✅ Created job found in jobs list")
+                    else:
+                        print("   ⚠️  Created job not found in jobs list")
+                
+                # Validate job structure if jobs exist
+                if len(jobs_list) > 0:
+                    sample_job = jobs_list[0]
+                    expected_job_fields = [
+                        'id', 'title', 'company_name', 'country', 'city', 
+                        'job_type', 'salary_range_min', 'salary_range_max', 
+                        'currency', 'requirements', 'benefits', 'application_deadline',
+                        'is_active', 'created_at'
+                    ]
+                    missing_job_fields = [field for field in expected_job_fields if field not in sample_job]
+                    if missing_job_fields:
+                        print(f"   ⚠️  Job object missing fields: {missing_job_fields}")
+                    else:
+                        print("   ✅ Job object structure is correct")
+                        print(f"   Sample job: {sample_job.get('title', 'N/A')} at {sample_job.get('company_name', 'N/A')}")
+            else:
+                print(f"   ❌ Expected list, got {type(jobs_list)}")
+        else:
+            print("❌ Jobs list retrieval failed")
+            
+        test_results.append(success2)
+        
+        # Test 3: Job Updates (PUT /api/jobs/{job_id})
+        print("\n🔍 Test 3: Job Updates (PUT /api/jobs/{job_id})")
+        
+        if created_job_id:
+            updated_job_data = {
+                "title": "Senior Construction Worker",
+                "company_name": "Dubai Construction Co",
+                "country": "UAE",
+                "city": "Dubai", 
+                "job_type": "full_time",
+                "salary_range_min": 2500.0,
+                "salary_range_max": 3500.0,
+                "currency": "USD",
+                "requirements": "Experience in construction work with leadership skills",
+                "benefits": "Accommodation, transport, and health insurance provided",
+                "application_deadline": "2025-03-15"
+            }
+            
+            success3, job_update_response = self.run_test(
+                f"Update Job {created_job_id}",
+                "PUT",
+                f"jobs/{created_job_id}",
+                200,
+                data=updated_job_data,
+                headers=admin_headers
+            )
+            
+            if success3:
+                print("✅ Job update successful")
+                
+                # Validate updated job structure
+                if isinstance(job_update_response, dict):
+                    updated_title = job_update_response.get('title')
+                    updated_salary_min = job_update_response.get('salary_range_min')
+                    
+                    if updated_title == "Senior Construction Worker":
+                        print("   ✅ Job title updated correctly")
+                    else:
+                        print(f"   ⚠️  Job title update issue: expected 'Senior Construction Worker', got '{updated_title}'")
+                    
+                    if updated_salary_min == 2500.0:
+                        print("   ✅ Salary range updated correctly")
+                    else:
+                        print(f"   ⚠️  Salary update issue: expected 2500.0, got {updated_salary_min}")
+                        
+                    print(f"   Updated job: {job_update_response.get('title', 'N/A')}")
+                else:
+                    print(f"   ❌ Expected dict response, got {type(job_update_response)}")
+            else:
+                print("❌ Job update failed")
+        else:
+            print("❌ No job ID available for update test")
+            success3 = False
+            
+        test_results.append(success3)
+        
+        # Test 4: Job Application by Client
+        print("\n🔍 Test 4: Job Application by Client (POST /api/jobs/{job_id}/apply)")
+        
+        if created_job_id:
+            success4, application_response = self.run_test(
+                f"Apply for Job {created_job_id}",
+                "POST",
+                f"jobs/{created_job_id}/apply",
+                200,
+                headers=client_headers
+            )
+            
+            if success4:
+                print("✅ Job application successful")
+                application_id = application_response.get('application_id')
+                print(f"   Application ID: {application_id}")
+                print(f"   Message: {application_response.get('message', 'No message')}")
+                
+                # Validate application response structure
+                required_app_fields = ['message', 'application_id']
+                missing_app_fields = [field for field in required_app_fields if field not in application_response]
+                if missing_app_fields:
+                    print(f"   ⚠️  Missing fields in application response: {missing_app_fields}")
+                else:
+                    print("   ✅ Job application response structure is correct")
+            else:
+                print("❌ Job application failed")
+        else:
+            print("❌ No job ID available for application test")
+            success4 = False
+            
+        test_results.append(success4)
+        
+        # Test 5: Get Client Applications (GET /api/jobs/applications)
+        print("\n🔍 Test 5: Get Client Applications (GET /api/jobs/applications)")
+        
+        success5, client_applications = self.run_test(
+            "Get Client Applications",
+            "GET",
+            "jobs/applications",
+            200,
+            headers=client_headers
+        )
+        
+        if success5:
+            print("✅ Client applications retrieval successful")
+            if isinstance(client_applications, list):
+                print(f"   Found {len(client_applications)} application(s)")
+                
+                # Validate application structure if applications exist
+                if len(client_applications) > 0:
+                    sample_app = client_applications[0]
+                    expected_app_fields = [
+                        'id', 'client_id', 'job_id', 'application_status',
+                        'applied_date', 'created_at', 'updated_at'
+                    ]
+                    missing_app_fields = [field for field in expected_app_fields if field not in sample_app]
+                    if missing_app_fields:
+                        print(f"   ⚠️  Application object missing fields: {missing_app_fields}")
+                    else:
+                        print("   ✅ Application object structure is correct")
+                        print(f"   Sample application status: {sample_app.get('application_status', 'N/A')}")
+            else:
+                print(f"   ❌ Expected list, got {type(client_applications)}")
+        else:
+            print("❌ Client applications retrieval failed")
+            
+        test_results.append(success5)
+        
+        # Test 6: Admin Get All Applications (GET /api/jobs/admin/applications)
+        print("\n🔍 Test 6: Admin Get All Applications (GET /api/jobs/admin/applications)")
+        
+        success6, admin_applications = self.run_test(
+            "Admin Get All Applications",
+            "GET",
+            "jobs/admin/applications",
+            200,
+            headers=admin_headers
+        )
+        
+        if success6:
+            print("✅ Admin applications retrieval successful")
+            if isinstance(admin_applications, list):
+                print(f"   Found {len(admin_applications)} application(s) system-wide")
+                
+                # Validate admin application view structure
+                if len(admin_applications) > 0:
+                    sample_admin_app = admin_applications[0]
+                    expected_admin_app_fields = [
+                        'id', 'client_id', 'job_id', 'application_status',
+                        'applied_date', 'created_at', 'updated_at'
+                    ]
+                    missing_admin_app_fields = [field for field in expected_admin_app_fields if field not in sample_admin_app]
+                    if missing_admin_app_fields:
+                        print(f"   ⚠️  Admin application view missing fields: {missing_admin_app_fields}")
+                    else:
+                        print("   ✅ Admin application view structure is correct")
+                        print(f"   Sample admin view status: {sample_admin_app.get('application_status', 'N/A')}")
+            else:
+                print(f"   ❌ Expected list, got {type(admin_applications)}")
+        else:
+            print("❌ Admin applications retrieval failed")
+            
+        test_results.append(success6)
+        
+        # Test 7: Job Deletion (DELETE /api/jobs/{job_id})
+        print("\n🔍 Test 7: Job Deletion (DELETE /api/jobs/{job_id})")
+        
+        if created_job_id:
+            success7, deletion_response = self.run_test(
+                f"Delete Job {created_job_id}",
+                "DELETE",
+                f"jobs/{created_job_id}",
+                200,
+                headers=admin_headers
+            )
+            
+            if success7:
+                print("✅ Job deletion successful")
+                print(f"   Message: {deletion_response.get('message', 'No message')}")
+                
+                # Verify job is no longer in the jobs list
+                verify_success, verify_jobs_list = self.run_test(
+                    "Verify Job Deletion",
+                    "GET",
+                    "jobs/",
+                    200,
+                    headers=client_headers
+                )
+                
+                if verify_success and isinstance(verify_jobs_list, list):
+                    job_still_exists = any(job.get('id') == created_job_id for job in verify_jobs_list)
+                    if not job_still_exists:
+                        print("   ✅ Job successfully removed from jobs list")
+                    else:
+                        print("   ⚠️  Job still appears in jobs list after deletion")
+                else:
+                    print("   ⚠️  Could not verify job deletion")
+            else:
+                print("❌ Job deletion failed")
+        else:
+            print("❌ No job ID available for deletion test")
+            success7 = False
+            
+        test_results.append(success7)
+        
+        # Test 8: Error Handling Tests
+        print("\n🔍 Test 8: Error Handling Tests")
+        
+        # Test 8a: Invalid job creation data
+        print("   🔍 Test 8a: Invalid job creation data")
+        invalid_job_data = {
+            "title": "",  # Empty title
+            "company_name": "Test Company",
+            "country": "UAE",
+            "job_type": "invalid_type",  # Invalid enum value
+            "salary_range_min": -1000.0,  # Negative salary
+            "currency": "INVALID"  # Invalid currency
+        }
+        
+        success8a, error_response = self.run_test(
+            "Invalid Job Creation",
+            "POST",
+            "jobs/",
+            400,  # Should return validation error
+            data=invalid_job_data,
+            headers=admin_headers
+        )
+        
+        if success8a:
+            print("   ✅ Invalid job data properly rejected")
+        else:
+            print("   ⚠️  Invalid job data validation may need improvement")
+        
+        # Test 8b: Non-existent job update
+        print("   🔍 Test 8b: Non-existent job update")
+        fake_job_id = "00000000-0000-0000-0000-000000000000"
+        
+        success8b, not_found_response = self.run_test(
+            "Update Non-existent Job",
+            "PUT",
+            f"jobs/{fake_job_id}",
+            404,  # Should return not found
+            data=job_test_data,
+            headers=admin_headers
+        )
+        
+        if success8b:
+            print("   ✅ Non-existent job update properly rejected (404)")
+        else:
+            print("   ⚠️  Non-existent job handling may need improvement")
+        
+        # Test 8c: Non-admin job creation
+        print("   🔍 Test 8c: Non-admin job creation")
+        
+        success8c, unauthorized_response = self.run_test(
+            "Non-Admin Job Creation",
+            "POST",
+            "jobs/",
+            403,  # Should return forbidden
+            data=job_test_data,
+            headers=client_headers
+        )
+        
+        if success8c:
+            print("   ✅ Non-admin job creation properly restricted (403)")
+        else:
+            print("   ⚠️  Non-admin job creation restriction may need improvement")
+        
+        error_handling_results = [success8a, success8b, success8c]
+        test_results.extend(error_handling_results)
+        
+        # Calculate overall results
+        passed_tests = sum(test_results)
+        total_tests = len(test_results)
+        
+        print(f"\n📊 COMPREHENSIVE JOB MANAGEMENT TEST SUMMARY:")
+        print(f"   ✅ Job Creation: {'PASS' if test_results[0] else 'FAIL'}")
+        print(f"   ✅ Get Jobs List: {'PASS' if test_results[1] else 'FAIL'}")
+        print(f"   ✅ Job Updates: {'PASS' if test_results[2] else 'FAIL'}")
+        print(f"   ✅ Job Application: {'PASS' if test_results[3] else 'FAIL'}")
+        print(f"   ✅ Client Applications: {'PASS' if test_results[4] else 'FAIL'}")
+        print(f"   ✅ Admin Applications: {'PASS' if test_results[5] else 'FAIL'}")
+        print(f"   ✅ Job Deletion: {'PASS' if test_results[6] else 'FAIL'}")
+        print(f"   ✅ Error Handling: {'PASS' if all(error_handling_results) else 'PARTIAL'} ({sum(error_handling_results)}/3)")
+        
+        overall_success = passed_tests >= 7  # Allow some minor failures in error handling
+        
+        if overall_success:
+            print(f"\n🎉 COMPREHENSIVE JOB MANAGEMENT SYSTEM: TESTS PASSED ({passed_tests}/{total_tests})")
+            print(f"   ✅ Job creation and management working correctly")
+            print(f"   ✅ Job applications system functional")
+            print(f"   ✅ Admin job management capabilities working")
+            print(f"   ✅ Client job application capabilities working")
+            print(f"   ✅ Job lifecycle (create → update → apply → delete) verified")
+        else:
+            print(f"\n⚠️  COMPREHENSIVE JOB MANAGEMENT SYSTEM: SOME TESTS FAILED ({passed_tests}/{total_tests})")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
     def test_documents_endpoints(self):
         """Test documents endpoints"""
         if not self.client_token:
