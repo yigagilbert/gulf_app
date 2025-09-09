@@ -116,38 +116,74 @@ const LoginForm = ({ onToggle, isClient = false }) => {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+            {/* Email or Phone Number Field */}
+            {isClient ? (
+              // Phone Number Field for Clients
+              <div className="space-y-2">
+                <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="phone_number"
+                    name="phone_number"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={formData.phone_number}
+                    onChange={handleChange}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors ${
+                      formErrors.phone_number 
+                        ? 'border-red-300 bg-red-50' 
+                        : 'border-gray-300 bg-white hover:border-gray-400'
+                    }`}
+                    placeholder="Enter your phone number"
+                  />
                 </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors ${
-                    formErrors.email 
-                      ? 'border-red-300 bg-red-50' 
-                      : 'border-gray-300 bg-white hover:border-gray-400'
-                  }`}
-                  placeholder="Enter your email"
-                />
+                {formErrors.phone_number && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {formErrors.phone_number}
+                  </p>
+                )}
               </div>
-              {formErrors.email && (
-                <p className="text-sm text-red-600 flex items-center mt-1">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {formErrors.email}
-                </p>
-              )}
-            </div>
+            ) : (
+              // Email Field for Admins
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors ${
+                      formErrors.email 
+                        ? 'border-red-300 bg-red-50' 
+                        : 'border-gray-300 bg-white hover:border-gray-400'
+                    }`}
+                    placeholder="Enter your email"
+                  />
+                </div>
+                {formErrors.email && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {formErrors.email}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Password Field */}
             <div className="space-y-2">
