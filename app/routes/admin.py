@@ -327,7 +327,7 @@ def admin_upload_client_document(
             client_id=client_id,
             document_type=document_type,
             file_name=file.filename,
-            file_url=f"/uploads/client_documents/{filename}",
+            file_url=f"/api/uploads/client_documents/{filename}",
             file_size=os.path.getsize(file_path),
             mime_type=file.content_type,
             uploaded_at=datetime.utcnow()
