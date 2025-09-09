@@ -28,13 +28,47 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 // Auth Page Component
 const AuthPage = () => {
   const [isLogin, setIsLogin] = React.useState(true);
+  const [authType, setAuthType] = React.useState('client'); // 'client' or 'admin'
+  
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
+        {/* Auth Type Toggle */}
+        <div className="text-center">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 mb-6">
+            <button
+              onClick={() => setAuthType('client')}
+              className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                authType === 'client'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Client Portal
+            </button>
+            <button
+              onClick={() => setAuthType('admin')}
+              className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                authType === 'admin'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Admin Portal
+            </button>
+          </div>
+        </div>
+        
         {isLogin ? (
-          <LoginForm onToggle={() => setIsLogin(false)} />
+          <LoginForm 
+            onToggle={() => setIsLogin(false)} 
+            isClient={authType === 'client'}
+          />
         ) : (
-          <RegisterForm onToggle={() => setIsLogin(true)} />
+          <RegisterForm 
+            onToggle={() => setIsLogin(true)}
+            isClient={authType === 'client'}
+          />
         )}
       </div>
     </div>
