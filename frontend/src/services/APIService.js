@@ -5,7 +5,7 @@
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: 'https://onboard-gulf.preview.emergentagent.com/api', // Force production backend URL
+  BASE_URL: 'https://consultportal.preview.emergentagent.com/api', // Force production backend URL
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [

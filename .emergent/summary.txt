@@ -1,67 +1,54 @@
 <analysis>
-The previous AI engineer successfully brought a job onboarding application from conception to a feature-rich MVP. The initial phase involved understanding the codebase, setting up the environment, and addressing foundational issues like backend stability and routing. Key feature implementations included mobile-first responsive design, robust authentication, and an enhanced admin-client chat system. Subsequent iterations focused on a comprehensive client onboarding wizard, admin capabilities for client creation and onboarding management, and full application branding with Gulf Consultants. The most recent work involved adding client profile picture display in the admin table, admin document upload functionality, and an in-app PDF viewer. The current challenge, and the focus of the ongoing work, is a critical bug related to user session persistence and quick expiry, which causes users to be signed out on page reload. The AI has identified an infinite re-rendering loop within  as the likely root cause.
+The previous AI engineer successfully evolved the Gulf Consultants job onboarding application from an MVP to a robust platform. Key initial efforts included resolving a critical session persistence bug, which involved fixing backend routing (adding  prefixes), correcting CORS, removing conflicting frontend environment variables (), and refining  dependencies to prevent re-renders. Following this, the engineer implemented comprehensive admin features: a full client document management system (upload, view, verify, delete), an advanced client status tracking system (new, verified, traveled, returned) with administrative control, and secure client deletion with cascading data removal and confirmation dialogs. Significant focus was also placed on improving the platform's responsiveness, particularly for the admin status update modal and the entire admin client management section, ensuring full functionality on mobile devices. The latest task involves redesigning the admin client details page to include a centered profile photo with an upload option and a letter placeholder, a task currently in progress with a recent code edit.
 </analysis>
 
 <product_requirements>
-The initial requirement was to build a job onboarding application focusing on communication with admins and client data storage, with a mobile-first design for both admin and client sides. This included a full review for functionality and design improvements.
-
-Subsequent requirements and implemented features include:
-1.  **Core Functionality:** Backend with PostgreSQL (initially, then switched to SQLite for local setup), user authentication, client profiles, document management, job opportunities, applications tracking. Frontend with React, role-based dashboards (Admin/Client), profile management, document upload.
-2.  **Communication:** Enhanced chat functionality between admins and clients, allowing admins to respond effectively.
-3.  **Design:** Mobile-first responsive design implemented across all existing and new features.
-4.  **Admin Client Management:** Admin users can create client accounts and complete the onboarding process on behalf of clients.
-5.  **Client Onboarding Workflow:** New clients (self-registered or admin-created) are redirected to a multi-step onboarding page after login to fill in personal details, next of kin, and other information, with the ability to save partial progress.
-6.  **Branding:** Application customized with the business name Gulf Consultants and an integrated logo across all key UI components (login, registration, dashboards, onboarding). Dashboard statistics and content were updated to reflect a travel/job consultancy context.
-7.  **Client Profile & Document Management:** Display client profile pictures in the admin client table. Admins can upload client documents (CVs, passports, etc.). Implement an in-app PDF viewer for administrators to view these documents directly.
-8.  **Bug Fixes:** Address authentication issues, backend port conflicts (initially 8001, then 8000 for local), registration link not working, and currently, critical session management bugs (user data loss on reload, quick session expiry, automatic sign-out).
+The Gulf Consultants application aims to facilitate job onboarding, client data management, and communication between admins and clients with a mobile-first approach. Core functionalities include user authentication, client profiles, document management, and job tracking. Key features implemented include an enhanced admin-client chat, multi-step client onboarding, and full application branding. Admins can create and manage client accounts, including viewing client profiles, uploading documents (CVs, passports, etc.) for clients, and utilizing an in-app PDF viewer. Admin capabilities further extended to managing client statuses (new, verified, traveled, returned) and securely deleting client profiles. The application requires a fully responsive design for both admin and client interfaces, ensuring all functionalities are accessible and user-friendly across various screen sizes. Ongoing work includes refining UI/UX, such as redesigning the admin client details page for profile picture display and upload functionality.
 </product_requirements>
 
 <key_technical_concepts>
--   **Backend:** FastAPI, Python, PostgreSQL (intended, then SQLite for local), Pydantic for data validation, JWT for authentication.
--   **Frontend:** React, JavaScript, Tailwind CSS for styling,  for routing.
--   **Infrastructure:** Uvicorn for ASGI server, Supervisor for process management, Kubernetes container environment.
--   **State/Session Management:** React Context API, /, JWT.
+-   **Backend:** FastAPI (Python), SQLite (local), Pydantic, JWT authentication, SQLAlchemy for ORM.
+-   **Frontend:** React.js, JavaScript, Tailwind CSS, , React Context API for state management.
+-   **Infrastructure:** Kubernetes (containerized), Supervisor (process management), Uvicorn.
+-   **Data Storage:** MongoDB (via MONGO_URL), file system for uploads.
 </key_technical_concepts>
 
 <code_architecture>
-The application follows a full-stack architecture with a FastAPI backend and a React frontend.
+The application uses a full-stack architecture with FastAPI for the backend and React for the frontend.
 
 
 
-**Key Files and Their Importance:**
+**Key Files and Their Importance (with recent changes):**
 
--   : This file serves as the main entry point for the FastAPI application. It consolidates all backend routes, sets up CORS middleware, initializes the database, and now also serves static files for uploaded documents. Recent changes included fixing router prefixes, adding static file serving, and moving from port 8001 to 8000 for local development.
--   : Defines the Pydantic models for data validation and serialization across the API. It's crucial for maintaining consistent data contracts. It was recently updated to include  for handling document uploads.
--   : Contains API endpoints for administrative tasks, including client creation, management, and document uploads. Recent changes added  for database joins to resolve errors and implemented client creation and document upload functionalities.
--   : Handles user-specific profile actions, including fetching onboarding status and uploading profile photos. It was updated to support the onboarding flow and profile picture uploads.
--   : Manages the global authentication state for the React application using Context API. It handles user login/logout, JWT token storage, and session persistence. This file has undergone significant refactoring to improve session management, token handling, and address issues like session loss on reload.
--   : Provides a centralized service for making API calls to the backend, incorporating token management and error handling. It was updated to work seamlessly with the 's token management and environment variables.
--   : The main routing component of the frontend. It defines the application's routes and implements authentication guards (). It was modified to correctly handle redirects for new clients to the  component.
--   : A new component implementing the multi-step form for client onboarding, capturing personal, document, contact, and emergency information.
--   : Displays a table of clients for admins. It was enhanced to show client profile pictures, provide document upload functionality, and integrate the PDF viewer.
--   : Frontend environment variables. Crucially,  is defined here, which points to the backend. This file has seen changes between , , and a new  for .
+*   : Main FastAPI entry. **Changes**: Router prefixes fixed to , static file serving for uploaded documents,  host/port. Also added  endpoint.
+*   : Pydantic models. **Changes**:  for uploads.
+*   : Admin API endpoints. **Changes**:  for DB joins, client creation, document upload for clients (), client list filtering (only ), , , , ,  with cascading deletes. Fixed  import.
+*   : User profile actions. **Changes**: Onboarding flow and profile picture uploads.
+*   : Database models. **Changes**: Updated  enum (new, verified, traveled, returned), corrected Document model fields (, , ).
+*   : FastAPI dependencies. **Changes**:  for role-based access.
+*   : React authentication context. **Changes**: Refactored for robust token management, session persistence,  dependency array fixes (removed duplicate , stabilized  and initialization).
+*   : Centralized API calls. **Changes**: Token management, environment variable usage, , , , , , , ,  methods added/modified. Fixed  handling for multipart form data.
+*   : Main frontend routing. **Changes**:  and redirects for .
+*   : Admin client list. **Changes**: Display client profile pictures, document upload/view integration, responsive client cards for mobile, status update buttons and modal, delete client buttons and modal, status display with new labels and colors.
+*   : Admin client details. **Changes**: Currently being *redesigned* to feature a centered profile photo (with placeholder) and an admin profile photo upload capability.
+*   : Admin document upload modal. **Changes**: Minor responsive improvements were checked, confirmed already mostly responsive.
+*   : (NEW) Manages and displays client-specific documents for admins. Allows viewing, downloading, verifying, and deleting.
+*   : (NEW) A responsive modal for admins to change a client's status (new, verified, traveled, returned).
+*   : (NEW) A type-to-confirm modal for admins to safely delete a client and all associated data.
+*    / : Frontend environment variables. **Changes**:  updated multiple times for correct backend URL (including  prefix),  removed to prevent local overrides in production.
+*    & : Supervisor configuration for frontend. **Changes**: Modified to serve the production build using Python's  instead of yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. (development server), which resolved persistent caching/routing issues for the public URL.
+
 </code_architecture>
 
 <pending_tasks>
--   **Fix Session Persistence:** Resolve the issue where user data is lost and the user is signed out on page reload, despite successful login and token storage. The current diagnosis points to a  dependency array issue in  causing an infinite re-rendering loop.
--   **Address Quick Session Expiry:** Investigate why user sessions expire too quickly, leading to premature sign-outs.
+-   **Complete Admin Client Details Page Redesign**: Finish implementing the new layout for the  to include a centered profile photo, a letter placeholder, and the functionality for admins to upload profile photos.
 </pending_tasks>
 
 <current_work>
-The immediate focus is on resolving critical session management bugs. The application currently allows users to log in successfully, and the branding (Gulf Consultants) and onboarding wizard load correctly. However, upon page reload, the application state is lost, and the user is effectively signed out, resulting in a blank page or redirection to the login screen.
-
-The AI engineer has identified the root cause of this session loss after reload as a potential infinite re-rendering loop within the  file, specifically related to the  dependency array, which includes . It's suspected that  might be recreating itself, triggering continuous re-renders.
-
-Prior attempts to fix this involved:
-1.  Updating the backend to run on port 8000 (as per user clarification) and extending the JWT token expiration in the  file.
-2.  Rewriting  and  to implement more robust token management and session persistence using .
-3.  Troubleshooting backend port conflicts and ensuring correct backend URL ( for local) in  (and creating ).
-4.  Refining routing logic in  and  to better handle authentication state initialization.
-5.  Identifying and removing a duplicate  function within  that was causing syntax errors.
-
-Despite these efforts, the core issue of session loss on reload persists, leading to a blank page after a successful initial login and subsequent reload.
+The immediate focus is on redesigning the  to enhance its visual layout and functionality. The user explicitly requested a profile photo at the top center of the page, with a letter placeholder if no photo is uploaded, and the ability for admins to upload this profile photo. The  method has been added/updated in  to support this. The  component has undergone a complete redesign, and a recent code edit was made to fix a syntax error () that occurred during this redesign, caused by leftover code after the export statement. The current state is that the code for the redesigned page has been edited, and the syntax error fixed, but the changes have not yet been tested to verify the new layout and functionality.
 </current_work>
 
 <optional_next_step>
-Address the identified root cause of session loss by fixing the  dependency array in  to prevent infinite re-rendering loops.
+Test the redesigned  to verify the new layout and profile photo upload functionality.
 </optional_next_step>
