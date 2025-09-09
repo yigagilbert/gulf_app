@@ -135,13 +135,13 @@ class JobPlacementAPITester:
         print("-" * 40)
         
         # Test client registration
-        reg_success, client_email = self.test_client_registration()
+        reg_success, client_phone = self.test_client_registration()
         if not reg_success:
             print("❌ Registration endpoint failed")
             return False
         
         # Test client login
-        login_success = self.test_client_login(client_email)
+        login_success = self.test_client_login(client_phone)
         if not login_success:
             print("❌ Login endpoint failed")
             return False
