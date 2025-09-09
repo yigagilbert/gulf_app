@@ -444,7 +444,7 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
             className="text-green-600 hover:text-green-500 font-medium focus:outline-none focus:underline"
             disabled={loading}
           >
-            Sign in instead
+            {isClient ? 'Login with phone number' : 'Login with email'}
           </button>
         </p>
       </div>
