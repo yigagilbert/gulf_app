@@ -67,29 +67,73 @@ class ClientProfile(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     
-    # Personal Information
+    # Form Registration Details (System Generated)
+    registration_date = Column(DateTime, default=datetime.utcnow)
+    serial_number = Column(String, unique=True)  # System generated
+    registration_number = Column(String, unique=True)  # System generated
+    
+    # BIO DATA (Personal Information)
     first_name = Column(String)
     middle_name = Column(String)
     last_name = Column(String)
+    age = Column(Integer)
+    gender = Column(String)  # Sex
+    tribe = Column(String)
+    passport_number = Column(String, unique=True)
+    contact_1 = Column(String)  # Primary contact
+    contact_2 = Column(String)  # Secondary contact
     date_of_birth = Column(Date)
-    gender = Column(String)
+    place_of_birth = Column(String)
+    nin = Column(String, unique=True)  # NIN Number
+    present_address = Column(Text)  # Present Address/Village
+    subcounty = Column(String)
+    district = Column(String)
+    marital_status = Column(String)
+    number_of_kids = Column(Integer)
+    height = Column(String)  # e.g., "5'8" or "173cm"
+    weight = Column(String)  # e.g., "70kg"
+    position_applied_for = Column(String)
+    religion = Column(String)
     nationality = Column(String)
     
-    # Official Documents
-    nin = Column(String, unique=True)
-    passport_number = Column(String, unique=True)
-    passport_expiry = Column(Date)
-    
-    # Contact Information
+    # Legacy fields (keeping for backward compatibility)
     phone_primary = Column(String)
     phone_secondary = Column(String)
     address_current = Column(Text)
     address_permanent = Column(Text)
-    
-    # Emergency Contact
     emergency_contact_name = Column(String)
     emergency_contact_phone = Column(String)
     emergency_contact_relationship = Column(String)
+    
+    # NEXT OF KIN
+    next_of_kin_name = Column(String)
+    next_of_kin_contact_1 = Column(String)
+    next_of_kin_contact_2 = Column(String)
+    next_of_kin_address = Column(Text)  # Present Address/Village
+    next_of_kin_subcounty = Column(String)
+    next_of_kin_district = Column(String)
+    next_of_kin_relationship = Column(String)
+    next_of_kin_age = Column(Integer)
+    
+    # PARENT'S DETAILS - Father
+    father_name = Column(String)
+    father_contact_1 = Column(String)
+    father_contact_2 = Column(String)
+    father_address = Column(Text)  # Present Address/Village
+    father_subcounty = Column(String)
+    father_district = Column(String)
+    
+    # PARENT'S DETAILS - Mother
+    mother_name = Column(String)
+    mother_contact_1 = Column(String)
+    mother_contact_2 = Column(String)
+    mother_address = Column(Text)  # Present Address/Village
+    mother_subcounty = Column(String)
+    mother_district = Column(String)
+    
+    # AGENT INFORMATION
+    agent_name = Column(String)
+    agent_contact = Column(String)
     
     # Profile Management
     profile_photo_url = Column(String)
@@ -104,12 +148,14 @@ class ClientProfile(Base):
     
     # Relationships
     user = relationship(
-    "User",
-    back_populates="client_profile",
-    foreign_keys="[ClientProfile.user_id]"
-)
+        "User",
+        back_populates="client_profile",
+        foreign_keys="[ClientProfile.user_id]"
+    )
     documents = relationship("Document", back_populates="client")
     job_applications = relationship("JobApplication", back_populates="client")
+    education_records = relationship("EducationRecord", back_populates="client")
+    employment_records = relationship("EmploymentRecord", back_populates="client")
 
 class Document(Base):
     __tablename__ = "documents"
