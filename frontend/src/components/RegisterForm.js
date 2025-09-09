@@ -56,8 +56,8 @@ const RegisterForm = ({ onToggle }) => {
       
       case 'password':
         if (!value) return 'Password is required';
-        const passwordValidation = validatePassword(value);
-        return passwordValidation.isValid ? '' : passwordValidation.errors[0];
+        if (value.length <= 6) return 'Password must be more than 6 characters';
+        return '';
       
       case 'confirmPassword':
         if (!value) return 'Please confirm your password';
@@ -96,8 +96,16 @@ const RegisterForm = ({ onToggle }) => {
         [name]: validateEmail(value) ? 'valid' : 'invalid'
       }));
     } else if (name === 'password' && value) {
-      const passwordValidation = validatePassword(value);
       setValidationStates(prev => ({
+        ...prev,
+        [name]: value.length > 6 ? 'valid' : 'invalid'
+      }));
+    } else if (name === 'phone_number' && value) {
+      setValidationStates(prev => ({
+        ...prev,
+        [name]: value.length >= 10 ? 'valid' : 'invalid'
+      }));
+    }
         ...prev,
         [name]: passwordValidation.isValid ? 'valid' : 'invalid'
       }));
