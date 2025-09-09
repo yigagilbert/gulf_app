@@ -602,23 +602,23 @@ def upload_client_profile_photo_admin(
     db: Session = Depends(get_db)
 ):
     """Upload profile photo for a client (admin only)"""
-    try:
-        # Get the client
-        client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-        if not client:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Client not found"
-            )
-            
-        # Validate file type
-        allowed_types = ["image/jpeg", "image/png", "image/jpg"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only JPEG and PNG images are allowed"
-            )
+    # Get the client
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
         
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JPEG and PNG images are allowed"
+        )
+    
+    try:
         # Create uploads directory if it doesn't exist
         upload_dir = Path("uploads/profile_photos")
         upload_dir.mkdir(parents=True, exist_ok=True)
