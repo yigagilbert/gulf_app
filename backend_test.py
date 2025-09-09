@@ -2132,6 +2132,287 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_phone_based_authentication_system(self):
+        """Test the new phone-based client authentication system"""
+        print("\n📱 PHONE-BASED CLIENT AUTHENTICATION SYSTEM TESTS")
+        print("-" * 60)
+        
+        # Test data as specified in the review request
+        test_client_data = {
+            "phone_number": "1234567890",
+            "first_name": "Test",
+            "last_name": "Client", 
+            "password": "testpassword123",
+            "email": "test@example.com"  # Optional
+        }
+        
+        admin_credentials = {
+            "email": "admin@example.com",
+            "password": "admin123"
+        }
+        
+        # Step 1: Test Client Registration with Phone Number
+        print("🔍 Step 1: Testing client registration with phone number...")
+        
+        success, registration_response = self.run_test(
+            "Client Registration (Phone-based)",
+            "POST",
+            "auth/register/client",
+            200,
+            data=test_client_data
+        )
+        
+        registration_success = success
+        if success:
+            print(f"   ✅ Client registration successful")
+            print(f"      Client ID: {registration_response.get('id', 'N/A')}")
+            print(f"      Phone Number: {registration_response.get('phone_number', 'N/A')}")
+            print(f"      Email: {registration_response.get('email', 'N/A')}")
+            print(f"      Role: {registration_response.get('role', 'N/A')}")
+        else:
+            print("❌ Client registration failed")
+        
+        registered_client_id = registration_response.get('id') if success else None
+        
+        # Step 2: Test Client Login with Phone Number
+        print("\n🔍 Step 2: Testing client login with phone number...")
+        
+        client_login_data = {
+            "phone_number": test_client_data["phone_number"],
+            "password": test_client_data["password"]
+        }
+        
+        success, login_response = self.run_test(
+            "Client Login (Phone-based)",
+            "POST", 
+            "auth/login/client",
+            200,
+            data=client_login_data
+        )
+        
+        client_login_success = success
+        if success:
+            print(f"   ✅ Client login successful")
+            print(f"      Access Token: {login_response.get('access_token', 'N/A')[:20]}...")
+            print(f"      Token Type: {login_response.get('token_type', 'N/A')}")
+            
+            client_user_info = login_response.get('user', {})
+            print(f"      User ID: {client_user_info.get('id', 'N/A')}")
+            print(f"      Phone Number: {client_user_info.get('phone_number', 'N/A')}")
+            print(f"      Role: {client_user_info.get('role', 'N/A')}")
+        else:
+            print("❌ Client login failed")
+        
+        client_token = login_response.get('access_token') if success else None
+        
+        # Step 3: Test Admin Login (Email-based - should still work)
+        print("\n🔍 Step 3: Testing admin login with email...")
+        
+        success, admin_login_response = self.run_test(
+            "Admin Login (Email-based)",
+            "POST",
+            "auth/login/admin", 
+            200,
+            data=admin_credentials
+        )
+        
+        admin_login_success = success
+        if success:
+            print(f"   ✅ Admin login successful")
+            print(f"      Access Token: {admin_login_response.get('access_token', 'N/A')[:20]}...")
+            
+            admin_user_info = admin_login_response.get('user', {})
+            print(f"      User ID: {admin_user_info.get('id', 'N/A')}")
+            print(f"      Email: {admin_user_info.get('email', 'N/A')}")
+            print(f"      Role: {admin_user_info.get('role', 'N/A')}")
+        else:
+            print("❌ Admin login failed")
+        
+        admin_token = admin_login_response.get('access_token') if success else None
+        
+        # Step 4: Test Admin Client Creation
+        print("\n🔍 Step 4: Testing admin client creation...")
+        
+        admin_created_client_data = {
+            "phone_number": "9876543210",
+            "first_name": "Admin",
+            "last_name": "Created",
+            "password": "admincreated123",
+            "email": "admincreated@example.com"
+        }
+        
+        admin_create_success = False
+        if admin_token:
+            admin_headers = {'Authorization': f'Bearer {admin_token}'}
+            
+            success, admin_create_response = self.run_test(
+                "Admin Client Creation",
+                "POST",
+                "admin/clients/create",
+                200,
+                data=admin_created_client_data,
+                headers=admin_headers
+            )
+            
+            admin_create_success = success
+            if success:
+                print(f"   ✅ Admin client creation successful")
+                print(f"      Client ID: {admin_create_response.get('id', 'N/A')}")
+                print(f"      Phone Number: {admin_create_response.get('phone_number', 'N/A')}")
+                print(f"      Email: {admin_create_response.get('email', 'N/A')}")
+                print(f"      Role: {admin_create_response.get('role', 'N/A')}")
+            else:
+                print("❌ Admin client creation failed")
+        else:
+            print("❌ No admin token available for client creation test")
+        
+        # Step 5: Test Password Validation (must be more than 6 characters)
+        print("\n🔍 Step 5: Testing password validation...")
+        
+        short_password_data = {
+            "phone_number": "5555555555",
+            "first_name": "Short",
+            "last_name": "Password",
+            "password": "123456"  # Exactly 6 characters - should fail
+        }
+        
+        success, validation_response = self.run_test(
+            "Password Validation Test (Short Password)",
+            "POST",
+            "auth/register/client",
+            422,  # Should return validation error
+            data=short_password_data
+        )
+        
+        password_validation_success = success
+        if success:
+            print(f"   ✅ Short password properly rejected")
+            print(f"      Error: {validation_response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Short password was not properly rejected")
+        
+        # Step 6: Test Phone Number Uniqueness
+        print("\n🔍 Step 6: Testing phone number uniqueness...")
+        
+        duplicate_phone_data = {
+            "phone_number": test_client_data["phone_number"],  # Same as first registration
+            "first_name": "Duplicate",
+            "last_name": "Phone",
+            "password": "duplicatephone123"
+        }
+        
+        success, duplicate_response = self.run_test(
+            "Phone Number Uniqueness Test",
+            "POST",
+            "auth/register/client",
+            400,  # Should return bad request
+            data=duplicate_phone_data
+        )
+        
+        phone_uniqueness_success = success
+        if success:
+            print(f"   ✅ Duplicate phone number properly rejected")
+            print(f"      Error: {duplicate_response.get('detail', 'No detail')}")
+        else:
+            print(f"   ❌ Duplicate phone number was not properly rejected")
+        
+        # Step 7: Test JWT Token Functionality
+        print("\n🔍 Step 7: Testing JWT token functionality...")
+        
+        jwt_functionality_success = False
+        if client_token:
+            client_headers = {'Authorization': f'Bearer {client_token}'}
+            
+            success, profile_response = self.run_test(
+                "Client Profile Access with JWT",
+                "GET",
+                "profile/me",
+                200,
+                headers=client_headers
+            )
+            
+            jwt_functionality_success = success
+            if success:
+                print(f"   ✅ Client JWT token working correctly")
+                print(f"      Profile ID: {profile_response.get('id', 'N/A')}")
+            else:
+                print(f"   ❌ Client JWT token not working")
+        else:
+            print(f"   ❌ No client token available for JWT testing")
+        
+        # Step 8: Test System-Generated Serial/Registration Numbers
+        print("\n🔍 Step 8: Testing system-generated serial/registration numbers...")
+        
+        serial_numbers_success = False
+        if admin_token and registered_client_id:
+            admin_headers = {'Authorization': f'Bearer {admin_token}'}
+            
+            success, client_details = self.run_test(
+                "Get Client Profile for Serial Numbers",
+                "GET",
+                f"admin/clients/{registered_client_id}",
+                200,
+                headers=admin_headers
+            )
+            
+            if success:
+                serial_number = client_details.get('serial_number')
+                registration_number = client_details.get('registration_number')
+                
+                if serial_number and registration_number:
+                    print(f"   ✅ Serial Number Generated: {serial_number}")
+                    print(f"   ✅ Registration Number Generated: {registration_number}")
+                    serial_numbers_success = True
+                else:
+                    if not serial_number:
+                        print(f"   ❌ Serial Number Missing")
+                    if not registration_number:
+                        print(f"   ❌ Registration Number Missing")
+            else:
+                print(f"   ❌ Could not retrieve client details for serial number verification")
+        else:
+            print(f"   ❌ Missing admin token or client ID for serial number testing")
+        
+        # Calculate overall results
+        tests_results = [
+            registration_success,
+            client_login_success,
+            admin_login_success,
+            admin_create_success,
+            password_validation_success,
+            phone_uniqueness_success,
+            jwt_functionality_success,
+            serial_numbers_success
+        ]
+        
+        print(f"\n📊 PHONE-BASED AUTHENTICATION TEST SUMMARY:")
+        print(f"   ✅ Client Registration (Phone): {'PASS' if tests_results[0] else 'FAIL'}")
+        print(f"   ✅ Client Login (Phone): {'PASS' if tests_results[1] else 'FAIL'}")
+        print(f"   ✅ Admin Login (Email): {'PASS' if tests_results[2] else 'FAIL'}")
+        print(f"   ✅ Admin Client Creation: {'PASS' if tests_results[3] else 'FAIL'}")
+        print(f"   ✅ Password Validation: {'PASS' if tests_results[4] else 'FAIL'}")
+        print(f"   ✅ Phone Number Uniqueness: {'PASS' if tests_results[5] else 'FAIL'}")
+        print(f"   ✅ JWT Token Functionality: {'PASS' if tests_results[6] else 'FAIL'}")
+        print(f"   ✅ Serial/Registration Numbers: {'PASS' if tests_results[7] else 'FAIL'}")
+        
+        overall_success = all(tests_results)
+        
+        if overall_success:
+            print(f"\n🎉 PHONE-BASED AUTHENTICATION SYSTEM: ALL TESTS PASSED")
+            print(f"   ✅ Client registration with phone number working")
+            print(f"   ✅ Client login with phone number working")
+            print(f"   ✅ Admin login with email still working")
+            print(f"   ✅ Admin client creation working")
+            print(f"   ✅ Password validation enforced (>6 characters)")
+            print(f"   ✅ Phone number uniqueness enforced")
+            print(f"   ✅ JWT tokens properly generated")
+            print(f"   ✅ System-generated serial/registration numbers working")
+        else:
+            print(f"\n⚠️  PHONE-BASED AUTHENTICATION SYSTEM: SOME TESTS FAILED")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
