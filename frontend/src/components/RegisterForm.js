@@ -106,15 +106,6 @@ const RegisterForm = ({ onToggle }) => {
         [name]: value.length >= 10 ? 'valid' : 'invalid'
       }));
     }
-        ...prev,
-        [name]: passwordValidation.isValid ? 'valid' : 'invalid'
-      }));
-    } else if (name === 'confirmPassword' && value) {
-      setValidationStates(prev => ({
-        ...prev,
-        [name]: value === formData.password ? 'valid' : 'invalid'
-      }));
-    }
   };
 
   const handleBlur = (e) => {
