@@ -286,9 +286,10 @@ class APIServiceClass {
   /**
    * Authentication endpoints
    */
-  async login(credentials) {
+  async login(credentials, isClient = false) {
     try {
-      const response = await this.request('/auth/login', {
+      const endpoint = isClient ? '/auth/login/client' : '/auth/login/admin';
+      const response = await this.request(endpoint, {
         method: 'POST',
         body: JSON.stringify(credentials)
       });
@@ -304,9 +305,10 @@ class APIServiceClass {
     }
   }
 
-  async register(userData) {
+  async register(userData, isClient = true) {
     try {
-      const response = await this.request('/auth/register', {
+      const endpoint = isClient ? '/auth/register/client' : '/auth/register/admin';
+      const response = await this.request(endpoint, {
         method: 'POST',
         body: JSON.stringify(userData)
       });
