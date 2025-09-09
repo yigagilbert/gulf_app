@@ -594,6 +594,73 @@ def delete_client(
             detail=f"Failed to delete client: {str(e)}"
         )
 
+@router.post("/clients/{client_id}/photo")
+def upload_client_profile_photo_admin(
+    client_id: str,
+    file: UploadFile = File(...),
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Upload profile photo for a client (admin only)"""
+    try:
+        # Get the client
+        client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client not found"
+            )
+            
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only JPEG and PNG images are allowed"
+            )
+        
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads/profile_photos")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Delete old profile photo if exists
+        if client.profile_photo_url:
+            old_photo_path = f".{client.profile_photo_url}"
+            if os.path.exists(old_photo_path):
+                try:
+                    os.remove(old_photo_path)
+                except Exception as e:
+                    print(f"Warning: Could not delete old profile photo: {e}")
+        
+        # Generate unique filename
+        file_extension = file.filename.split(".")[-1]
+        filename = f"{client_id}_{uuid.uuid4().hex}.{file_extension}"
+        file_path = upload_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Update client profile with photo URL
+        client.profile_photo_url = f"/uploads/profile_photos/{filename}"
+        client.updated_at = datetime.utcnow()
+        client.last_modified_by = admin_user.id
+        
+        db.commit()
+        db.refresh(client)
+        
+        return {
+            "profile_photo_url": client.profile_photo_url, 
+            "message": "Client profile photo uploaded successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload client profile photo: {str(e)}"
+        )
+
 def _get_onboarding_completion(profile: ClientProfile) -> dict:
     """Get detailed onboarding completion status"""
     required_fields = [
