@@ -5,7 +5,7 @@ import { validateEmail, validatePassword } from '../utils/validation';
 import { VALIDATION_RULES } from '../constants';
 
 // Enhanced Registration Form for Clients
-const RegisterForm = ({ onToggle }) => {
+const RegisterForm = ({ onToggle, isClient = true }) => {
   const [formData, setFormData] = useState({
     phone_number: '',
     email: '',
