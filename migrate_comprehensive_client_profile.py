@@ -31,8 +31,8 @@ def migrate_database():
         new_columns = [
             # Form Registration Details
             ('registration_date', 'DATETIME'),
-            ('serial_number', 'VARCHAR UNIQUE'),
-            ('registration_number', 'VARCHAR UNIQUE'),
+            ('serial_number', 'VARCHAR'),  # Remove UNIQUE constraint for ALTER TABLE
+            ('registration_number', 'VARCHAR'),  # Remove UNIQUE constraint for ALTER TABLE
             
             # Bio Data - Additional fields
             ('age', 'INTEGER'),
