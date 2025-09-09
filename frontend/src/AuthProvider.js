@@ -254,12 +254,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, updateActivity]);
 
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async (credentials, isClient = false) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await APIService.login(credentials);
+      const response = await APIService.login(credentials, isClient);
       
       if (response && response.access_token && response.user) {
         // Store auth data with extended expiry (7 days)
