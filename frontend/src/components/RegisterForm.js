@@ -1,18 +1,18 @@
-import { useState, useMemo } from 'react';  // Removed useCallback if unused after cleanup
-// import { Mail, Lock, Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'react-feather';
-import { Eye, EyeOff, Mail, Lock, User, CheckCircle, XCircle, AlertCircle, Loader } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Eye, EyeOff, Mail, Lock, User, CheckCircle, XCircle, AlertCircle, Loader, Phone } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
-import { validateEmail, validatePassword } from '../utils/validation';  // Imported to replace inline
-import { VALIDATION_RULES } from '../constants';  // For password min length
+import { validateEmail, validatePassword } from '../utils/validation';
+import { VALIDATION_RULES } from '../constants';
 
-// Enhanced Registration Form
+// Enhanced Registration Form for Clients
 const RegisterForm = ({ onToggle }) => {
   const [formData, setFormData] = useState({
+    phone_number: '',
     email: '',
     password: '',
     confirmPassword: '',
-    firstName: '',
-    lastName: '',
+    first_name: '',
+    last_name: '',
     acceptTerms: false
   });
   const [errors, setErrors] = useState({});
@@ -24,11 +24,11 @@ const RegisterForm = ({ onToggle }) => {
 
   const { register } = useAuth();
 
-  // Password requirements (using imported validatePassword logic indirectly)
+  // Password requirements - updated for 7+ characters
   const passwordRequirements = useMemo(() => {
     const password = formData.password;
     return [
-      { text: `At least ${VALIDATION_RULES.PASSWORD_MIN_LENGTH} characters`, met: password.length >= VALIDATION_RULES.PASSWORD_MIN_LENGTH },
+      { text: 'More than 6 characters', met: password.length > 6 },
       { text: 'One lowercase letter', met: /[a-z]/.test(password) },
       { text: 'One uppercase letter', met: /[A-Z]/.test(password) },
       { text: 'One number', met: /\d/.test(password) }
@@ -38,15 +38,20 @@ const RegisterForm = ({ onToggle }) => {
   // Real-time validation
   const validateField = (name, value) => {
     switch (name) {
-      case 'firstName':
-      case 'lastName':
-        if (!value.trim()) return `${name === 'firstName' ? 'First' : 'Last'} name is required`;
-        if (value.trim().length < VALIDATION_RULES.NAME_MIN_LENGTH) return `${name === 'firstName' ? 'First' : 'Last'} name must be at least ${VALIDATION_RULES.NAME_MIN_LENGTH} characters`;
+      case 'first_name':
+      case 'last_name':
+        if (!value.trim()) return `${name === 'first_name' ? 'First' : 'Last'} name is required`;
+        if (value.trim().length < 2) return `${name === 'first_name' ? 'First' : 'Last'} name must be at least 2 characters`;
+        return '';
+
+      case 'phone_number':
+        if (!value.trim()) return 'Phone number is required';
+        if (value.trim().length < 10) return 'Phone number must be at least 10 characters';
         return '';
 
       case 'email':
-        if (!value) return 'Email is required';
-        if (!validateEmail(value)) return 'Please enter a valid email address';
+        // Email is optional for clients
+        if (value && !validateEmail(value)) return 'Please enter a valid email address';
         return '';
       
       case 'password':
