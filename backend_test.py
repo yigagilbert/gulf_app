@@ -103,7 +103,7 @@ class JobPlacementAPITester:
         success, response = self.run_test(
             "Admin Login",
             "POST",
-            "auth/login",
+            "auth/login/admin",
             200,
             data={
                 "email": "admin@example.com",
@@ -112,7 +112,8 @@ class JobPlacementAPITester:
         )
         if success:
             self.admin_token = response.get('access_token')
-            self.admin_user_id = response.get('user', {}).get('id')
+            user_info = response.get('user', {})
+            self.admin_user_id = user_info.get('id')
             print(f"   Admin Token: {self.admin_token[:20]}...")
         return success
 
