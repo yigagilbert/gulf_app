@@ -2473,6 +2473,10 @@ def main():
     print("-" * 70)
     comprehensive_profile_success = tester.test_comprehensive_client_profile_functionality()
     
+    print("\n📱 PHONE-BASED CLIENT AUTHENTICATION SYSTEM TESTS")
+    print("-" * 70)
+    phone_auth_success = tester.test_phone_based_authentication_system()
+    
     # Print final results
     print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS")
