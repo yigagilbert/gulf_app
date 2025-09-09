@@ -126,15 +126,31 @@ class ClientProfileCreate(BaseModel):
     profile_photo_url: Optional[str] = None
 
 class ClientProfileUpdate(BaseModel):
+    # BIO DATA (Personal Information) - All optional for updates
     first_name: Optional[str] = None
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    gender: Optional[str] = None
-    nationality: Optional[str] = None
-    nin: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None  # Sex
+    tribe: Optional[str] = None
     passport_number: Optional[str] = None
-    passport_expiry: Optional[date] = None
+    contact_1: Optional[str] = None  # Primary contact
+    contact_2: Optional[str] = None  # Secondary contact
+    date_of_birth: Optional[date] = None
+    place_of_birth: Optional[str] = None
+    nin: Optional[str] = None  # NIN Number
+    present_address: Optional[str] = None  # Present Address/Village
+    subcounty: Optional[str] = None
+    district: Optional[str] = None
+    marital_status: Optional[str] = None
+    number_of_kids: Optional[int] = None
+    height: Optional[str] = None  # e.g., "5'8" or "173cm"
+    weight: Optional[str] = None  # e.g., "70kg"
+    position_applied_for: Optional[str] = None
+    religion: Optional[str] = None
+    nationality: Optional[str] = None
+    
+    # Legacy fields (backward compatibility)
     phone_primary: Optional[str] = None
     phone_secondary: Optional[str] = None
     address_current: Optional[str] = None
@@ -142,6 +158,37 @@ class ClientProfileUpdate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     emergency_contact_relationship: Optional[str] = None
+    
+    # NEXT OF KIN
+    next_of_kin_name: Optional[str] = None
+    next_of_kin_contact_1: Optional[str] = None
+    next_of_kin_contact_2: Optional[str] = None
+    next_of_kin_address: Optional[str] = None  # Present Address/Village
+    next_of_kin_subcounty: Optional[str] = None
+    next_of_kin_district: Optional[str] = None
+    next_of_kin_relationship: Optional[str] = None
+    next_of_kin_age: Optional[int] = None
+    
+    # PARENT'S DETAILS - Father
+    father_name: Optional[str] = None
+    father_contact_1: Optional[str] = None
+    father_contact_2: Optional[str] = None
+    father_address: Optional[str] = None  # Present Address/Village
+    father_subcounty: Optional[str] = None
+    father_district: Optional[str] = None
+    
+    # PARENT'S DETAILS - Mother
+    mother_name: Optional[str] = None
+    mother_contact_1: Optional[str] = None
+    mother_contact_2: Optional[str] = None
+    mother_address: Optional[str] = None  # Present Address/Village
+    mother_subcounty: Optional[str] = None
+    mother_district: Optional[str] = None
+    
+    # AGENT INFORMATION
+    agent_name: Optional[str] = None
+    agent_contact: Optional[str] = None
+    
     profile_photo_url: Optional[str] = None
 
 class ClientProfileResponse(BaseModel):
