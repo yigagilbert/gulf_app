@@ -462,6 +462,36 @@ const AdminClientDetailsPage = () => {
               ))}
             </div>
 
+            {/* Education Background Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  <FileText className="h-5 w-5 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">EDUCATION BACKGROUND</h3>
+              </div>
+              <div className="text-center text-gray-500 py-8">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p>Education records will be displayed here</p>
+                <p className="text-sm">Feature coming soon</p>
+              </div>
+            </div>
+
+            {/* Employment Record Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <Briefcase className="h-5 w-5 text-purple-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">EMPLOYMENT RECORD</h3>
+              </div>
+              <div className="text-center text-gray-500 py-8">
+                <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p>Employment records will be displayed here</p>
+                <p className="text-sm">Feature coming soon</p>
+              </div>
+            </div>
+
             {/* System Information */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center mb-4">
