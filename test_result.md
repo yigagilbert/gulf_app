@@ -320,8 +320,16 @@ The Gulf Consultants job placement backend API is **fully functional** and worki
 ✅ **Deletion Response Format**: Includes complete audit information and deleted client details  
 ✅ **Deletion Data Integrity**: All cascading deletions verified and working correctly  
 ✅ **Specific Client Testing**: Successfully tested with client ID a434d812-1c6a-4e3d-945a-8153c7088c51  
+✅ **Admin Client Profile Photo Upload**: New endpoint working perfectly with proper authentication and validation  
+✅ **Photo Upload Response Structure**: Returns profile_photo_url field as required  
+✅ **Photo Upload Client Profile Update**: Client profile correctly updated with new photo URL  
+✅ **Photo Upload Old Photo Deletion**: Old photos properly deleted when new ones uploaded  
+✅ **Photo Upload Error Handling**: Proper HTTP status codes for all edge cases (404, 403, 400)  
+✅ **Photo Upload File Validation**: Only JPEG and PNG images allowed as specified  
 
 **No critical issues found.** The backend is ready for production use and the Gulf Consultants client deletion system is working perfectly and safely. The client deletion functionality correctly supports secure admin-only deletion with comprehensive cascading cleanup of all associated data including documents, chat messages, job applications, and physical files. The system properly enforces authentication and authorization, handles error cases correctly, and provides detailed audit information for all deletion operations.
+
+**Admin Client Profile Photo Upload System Verification:** The new POST /api/admin/clients/{client_id}/photo endpoint has been thoroughly tested and verified working correctly. Successfully tested photo upload functionality with proper admin authentication, file validation (JPEG/PNG only), response structure with profile_photo_url field, client profile updates, old photo deletion, and comprehensive error handling for all edge cases. Fixed error handling issue to ensure proper HTTP status codes (404 for invalid client ID, 403 for non-admin users, 400 for invalid file types). The endpoint is production-ready for the AdminClientDetailsPage redesign.
 
 **Client Deletion System Verification:** The DELETE /api/admin/clients/{client_id} endpoint has been thoroughly tested and verified working correctly. Successfully tested deletion of client 'YIGA GILBERT' (a434d812-1c6a-4e3d-945a-8153c7088c51) with 45 associated documents. All cascading deletions work properly, client is removed from client list, proper authentication/authorization enforced, error handling working for edge cases, and response format includes complete audit information. The client deletion system is production-ready and secure.
 
