@@ -10,7 +10,7 @@ from app.utils import get_password_hash, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/register/client", response_model=UserResponse)
+@router.post("/register/client")
 def register_client(client_data: ClientCreate, db: Session = Depends(get_db)):
     """Register a new client using phone number as username"""
     # Check if phone number already exists
@@ -49,13 +49,20 @@ def register_client(client_data: ClientCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
         
-        return UserResponse(
-            id=user.id,
-            phone_number=user.phone_number,
-            email=user.email,
-            role=user.role,
-            is_active=user.is_active
-        )
+        # Create access token for immediate login
+        access_token = create_access_token(data={"sub": user.id})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "phone_number": user.phone_number,
+                "email": user.email,
+                "role": user.role,
+                "is_active": user.is_active
+            }
+        }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
