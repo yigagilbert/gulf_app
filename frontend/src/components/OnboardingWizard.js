@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, Phone, MapPin, Users, FileText, 
-  ChevronRight, ChevronLeft, Check, AlertCircle, Save
+  User, Phone, MapPin, Users, FileText, Heart, Briefcase, GraduationCap,
+  ChevronRight, ChevronLeft, Check, AlertCircle, Save, UserCheck, Building
 } from 'lucide-react';
 import APIService from '../services/APIService';
 import { useAuth } from '../AuthProvider';
@@ -17,26 +17,69 @@ const OnboardingWizard = ({ onComplete }) => {
   const [success, setSuccess] = useState(null);
   
   const [formData, setFormData] = useState({
-    // Personal Information
+    // Personal Information (BIO DATA)
     first_name: '',
     middle_name: '',
     last_name: '',
-    date_of_birth: '',
+    age: '',
     gender: '',
+    tribe: '',
+    date_of_birth: '',
+    place_of_birth: '',
+    present_address: '',
+    subcounty: '',
+    district: '',
+    marital_status: '',
+    number_of_kids: '',
+    height: '',
+    weight: '',
+    position_applied_for: '',
+    religion: '',
     nationality: '',
+    
+    // Contact Information
+    contact_1: '',
+    contact_2: '',
     
     // Official Documents
     nin: '',
     passport_number: '',
-    passport_expiry: '',
     
-    // Contact Information
+    // Next of Kin
+    next_of_kin_name: '',
+    next_of_kin_contact_1: '',
+    next_of_kin_contact_2: '',
+    next_of_kin_address: '',
+    next_of_kin_subcounty: '',
+    next_of_kin_district: '',
+    next_of_kin_relationship: '',
+    next_of_kin_age: '',
+    
+    // Father's Information
+    father_name: '',
+    father_contact_1: '',
+    father_contact_2: '',
+    father_address: '',
+    father_subcounty: '',
+    father_district: '',
+    
+    // Mother's Information
+    mother_name: '',
+    mother_contact_1: '',
+    mother_contact_2: '',
+    mother_address: '',
+    mother_subcounty: '',
+    mother_district: '',
+    
+    // Agent Information
+    agent_name: '',
+    agent_contact: '',
+    
+    // Legacy fields for backward compatibility
     phone_primary: '',
     phone_secondary: '',
     address_current: '',
     address_permanent: '',
-    
-    // Emergency Contact
     emergency_contact_name: '',
     emergency_contact_phone: '',
     emergency_contact_relationship: ''
@@ -46,30 +89,82 @@ const OnboardingWizard = ({ onComplete }) => {
     {
       id: 'personal',
       title: 'Personal Information',
-      description: 'Tell us about yourself',
+      description: 'Basic information about you',
       icon: User,
-      fields: ['first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender', 'nationality']
+      fields: [
+        'first_name', 'middle_name', 'last_name', 'age', 'gender', 'tribe',
+        'date_of_birth', 'place_of_birth', 'nationality', 'religion'
+      ]
     },
     {
-      id: 'documents',
-      title: 'Official Documents',
-      description: 'Your identification details',
-      icon: FileText,
-      fields: ['nin', 'passport_number', 'passport_expiry']
+      id: 'physical',
+      title: 'Physical & Personal Details',
+      description: 'Additional personal information',
+      icon: UserCheck,
+      fields: [
+        'marital_status', 'number_of_kids', 'height', 'weight', 'position_applied_for'
+      ]
+    },
+    {
+      id: 'location',
+      title: 'Location Information',
+      description: 'Where do you live?',
+      icon: MapPin,
+      fields: [
+        'present_address', 'subcounty', 'district'
+      ]
     },
     {
       id: 'contact',
       title: 'Contact Information',
       description: 'How can we reach you?',
       icon: Phone,
-      fields: ['phone_primary', 'phone_secondary', 'address_current', 'address_permanent']
+      fields: ['contact_1', 'contact_2']
     },
     {
-      id: 'emergency',
-      title: 'Emergency Contact',
-      description: 'Someone we can contact in case of emergency',
+      id: 'documents',
+      title: 'Official Documents',
+      description: 'Your identification details',
+      icon: FileText,
+      fields: ['nin', 'passport_number']
+    },
+    {
+      id: 'next_of_kin',
+      title: 'Next of Kin',
+      description: 'Emergency contact person',
+      icon: Heart,
+      fields: [
+        'next_of_kin_name', 'next_of_kin_contact_1', 'next_of_kin_contact_2',
+        'next_of_kin_address', 'next_of_kin_subcounty', 'next_of_kin_district',
+        'next_of_kin_relationship', 'next_of_kin_age'
+      ]
+    },
+    {
+      id: 'father',
+      title: "Father's Information",
+      description: 'Information about your father',
       icon: Users,
-      fields: ['emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship']
+      fields: [
+        'father_name', 'father_contact_1', 'father_contact_2',
+        'father_address', 'father_subcounty', 'father_district'
+      ]
+    },
+    {
+      id: 'mother',
+      title: "Mother's Information",
+      description: 'Information about your mother',
+      icon: Users,
+      fields: [
+        'mother_name', 'mother_contact_1', 'mother_contact_2',
+        'mother_address', 'mother_subcounty', 'mother_district'
+      ]
+    },
+    {
+      id: 'agent',
+      title: 'Agent Information',
+      description: 'Your recruitment agent details',
+      icon: Building,
+      fields: ['agent_name', 'agent_contact']
     }
   ];
 
