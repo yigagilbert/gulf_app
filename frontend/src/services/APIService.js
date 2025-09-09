@@ -473,6 +473,14 @@ class APIServiceClass {
     });
   }
 
+  async uploadProfilePhoto(clientId, formData) {
+    return this.request(`/profile/${clientId}/photo`, {
+      method: 'POST',
+      body: formData,
+      skipContentType: true
+    });
+  }
+
   async getAdminInbox() {
     return this.request('/chat/admin/inbox');
   }
