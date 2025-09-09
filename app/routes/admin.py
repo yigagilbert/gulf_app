@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage, EducationRecord, EmploymentRecord
 from app.schemas import (
-    UserCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
+    UserCreate, ClientCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
     AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate,
     EducationRecordCreate, EducationRecordResponse, EmploymentRecordCreate, EmploymentRecordResponse
 )
