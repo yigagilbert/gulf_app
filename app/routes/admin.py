@@ -10,7 +10,8 @@ from app.models import User, ClientProfile, Document, JobOpportunity, JobApplica
 from app.schemas import (
     UserCreate, ClientCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
     AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate,
-    EducationRecordCreate, EducationRecordResponse, EmploymentRecordCreate, EmploymentRecordResponse
+    EducationRecordCreate, EducationRecordResponse, EmploymentRecordCreate, EmploymentRecordResponse,
+    JobOpportunityCreate, JobOpportunityResponse, JobApplicationResponse
 )
 from app.database import get_db
 from app.dependencies import get_admin_user
