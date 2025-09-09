@@ -14,50 +14,95 @@ const AdminClientDetailsPage = () => {
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
 
-  // Define which fields to display and their labels
+  // Define which fields to display and their labels - Comprehensive version
   const fieldConfig = {
-    // Personal Information
+    // Form Registration Details
+    registration: {
+      title: "Form Registration Details",
+      icon: Shield,
+      fields: {
+        registration_date: "Date of Registration",
+        serial_number: "Serial Number",
+        registration_number: "Registration Number"
+      }
+    },
+    // Bio Data (Personal Information)
     personal: {
-      title: "Personal Information",
+      title: "BIO DATA (Personal Information)",
       icon: User,
       fields: {
         first_name: "First Name",
         middle_name: "Middle Name", 
         last_name: "Last Name",
+        age: "Age",
+        gender: "Sex",
+        tribe: "Tribe",
+        passport_number: "Passport Number",
+        contact_1: "Contact 1",
+        contact_2: "Contact 2",
         date_of_birth: "Date of Birth",
-        gender: "Gender",
+        place_of_birth: "Place of Birth",
+        nin: "NIN Number",
+        present_address: "Present Address/Village",
+        subcounty: "Subcounty",
+        district: "District",
+        marital_status: "Marital Status",
+        number_of_kids: "Number of Kids",
+        height: "Height",
+        weight: "Weight",
+        position_applied_for: "Position Applied For",
+        religion: "Religion",
         nationality: "Nationality"
       }
     },
-    // Contact Information
-    contact: {
-      title: "Contact Information",
-      icon: Phone,
-      fields: {
-        phone_primary: "Primary Phone",
-        phone_secondary: "Secondary Phone",
-        address_current: "Current Address",
-        address_permanent: "Permanent Address"
-      }
-    },
-    // Documentation
-    documentation: {
-      title: "Documentation",
-      icon: FileText,
-      fields: {
-        nin: "National ID Number",
-        passport_number: "Passport Number",
-        passport_expiry: "Passport Expiry"
-      }
-    },
-    // Emergency Contact
-    emergency: {
-      title: "Emergency Contact",
+    // Next of Kin
+    nextOfKin: {
+      title: "NEXT OF KIN",
       icon: Heart,
       fields: {
-        emergency_contact_name: "Contact Name",
-        emergency_contact_phone: "Contact Phone",
-        emergency_contact_relationship: "Relationship"
+        next_of_kin_name: "Name of Next of Kin",
+        next_of_kin_contact_1: "Contact 1",
+        next_of_kin_contact_2: "Contact 2",
+        next_of_kin_address: "Present Address/Village",
+        next_of_kin_subcounty: "Subcounty",
+        next_of_kin_district: "District",
+        next_of_kin_relationship: "Relationship with Next of Kin",
+        next_of_kin_age: "Age of Next of Kin"
+      }
+    },
+    // Parent's Details - Father
+    father: {
+      title: "FATHER'S INFORMATION",
+      icon: User,
+      fields: {
+        father_name: "Father's Name",
+        father_contact_1: "Contact 1",
+        father_contact_2: "Contact 2",
+        father_address: "Present Address/Village",
+        father_subcounty: "Subcounty",
+        father_district: "District"
+      }
+    },
+    // Parent's Details - Mother
+    mother: {
+      title: "MOTHER'S INFORMATION",
+      icon: User,
+      fields: {
+        mother_name: "Mother's Name",
+        mother_contact_1: "Contact 1",
+        mother_contact_2: "Contact 2",
+        mother_address: "Present Address/Village",
+        mother_subcounty: "Subcounty",
+        mother_district: "District"
+      }
+    },
+    // Agent Information
+    agent: {
+      title: "AGENT INFORMATION",
+      icon: User,
+      fields: {
+        agent_name: "Name of the Agent",
+        agent_contact: "Contact 1"
       }
     }
   };
