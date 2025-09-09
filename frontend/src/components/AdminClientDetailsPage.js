@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Edit, Save, X, User, Mail, Phone, MapPin, Calendar, FileText, Shield, Heart } from 'lucide-react';
+import { ArrowLeft, Camera, Edit, Save, X, User, Mail, Phone, MapPin, Calendar, FileText, Shield, Heart, Briefcase } from 'lucide-react';
 import APIService from '../services/APIService';
 
 const AdminClientDetailsPage = () => {
