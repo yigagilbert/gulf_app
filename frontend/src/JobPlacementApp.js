@@ -57,7 +57,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Admin Routes */}
+      {/* Admin Routes - Order matters! More specific routes first */}
       {isAdmin && (
         <>
           <Route
@@ -69,7 +69,7 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="/admin"
+            path="/admin/*"
             element={
               <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
                 <AdminDashboard />
