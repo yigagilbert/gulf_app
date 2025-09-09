@@ -74,8 +74,8 @@ uploads_dir.mkdir(exist_ok=True)
 (uploads_dir / "profile_photos").mkdir(exist_ok=True)
 (uploads_dir / "client_documents").mkdir(exist_ok=True)
 
-# Mount static files for serving uploads
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Mount static files for serving uploads under /api prefix to match ingress routing
+app.mount("/api/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
