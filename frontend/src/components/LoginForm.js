@@ -95,10 +95,10 @@ const LoginForm = ({ onToggle, isClient = false }) => {
             />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome to Gulf Consultants
+            {isClient ? 'Client Login' : 'Admin Login'}
           </h2>
           <p className="text-gray-600">
-            Your Travel Partner - Sign in to access your job placement portal
+            {isClient ? 'Login with your phone number' : 'Login with your email address'}
           </p>
         </div>
 
