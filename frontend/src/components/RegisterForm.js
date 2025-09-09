@@ -427,10 +427,10 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           {loading ? (
             <>
               <Loader className="animate-spin -ml-1 mr-3 h-5 w-5" />
-              Creating Account...
+              {isClient ? 'Creating Account...' : 'Creating Admin Account...'}
             </>
           ) : (
-            'Create Account'
+            isClient ? 'Create Client Account' : 'Create Admin Account'
           )}
         </button>
       </form>
