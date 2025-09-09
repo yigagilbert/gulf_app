@@ -1836,6 +1836,302 @@ class JobPlacementAPITester:
         
         return overall_success
 
+    def test_comprehensive_client_profile_functionality(self):
+        """Test comprehensive client profile functionality as requested in review"""
+        print("\n🏢 COMPREHENSIVE CLIENT PROFILE FUNCTIONALITY TESTS")
+        print("-" * 70)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for comprehensive client profile tests")
+            return False
+        
+        headers = {'Authorization': f'Bearer {self.admin_token}'}
+        
+        # Step 1: Get client list to find a test client
+        print("🔍 Step 1: Getting client list to find test client...")
+        success, clients_list = self.run_test(
+            "Get Client List for Comprehensive Profile Test",
+            "GET",
+            "admin/clients",
+            200,
+            headers=headers
+        )
+        
+        if not success or not clients_list:
+            print("❌ Could not retrieve client list for comprehensive profile testing")
+            return False
+        
+        # Find a client to test with (prefer specific client ID from review request)
+        test_client_id = None
+        specific_client_id = "a434d812-1c6a-4e3d-945a-8153c7088c51"
+        
+        # Check if specific client exists
+        for client in clients_list:
+            if client.get('id') == specific_client_id:
+                test_client_id = specific_client_id
+                print(f"✅ Found specific client from review request: {test_client_id}")
+                break
+        
+        # If specific client not found, use first available client
+        if not test_client_id and clients_list:
+            test_client_id = clients_list[0]['id']
+            print(f"ℹ️  Using first available client: {test_client_id}")
+        
+        if not test_client_id:
+            print("❌ No clients available for comprehensive profile testing")
+            return False
+        
+        # Step 2: Test Client Profile Retrieval - GET /api/admin/clients/{client_id}
+        print(f"\n🔍 Step 2: Testing comprehensive client profile retrieval...")
+        print(f"   Testing GET /api/admin/clients/{test_client_id}")
+        
+        success, client_profile = self.run_test(
+            "Comprehensive Client Profile Retrieval",
+            "GET",
+            f"admin/clients/{test_client_id}",
+            200,
+            headers=headers
+        )
+        
+        if not success:
+            print("❌ Could not retrieve client profile")
+            return False
+        
+        print(f"✅ Client profile retrieved successfully")
+        
+        # Step 3: Verify System-Generated Fields
+        print(f"\n🔍 Step 3: Verifying system-generated fields...")
+        
+        system_generated_fields = ['serial_number', 'registration_number', 'registration_date']
+        system_fields_present = []
+        system_fields_missing = []
+        
+        for field in system_generated_fields:
+            if field in client_profile and client_profile[field] is not None:
+                system_fields_present.append(field)
+                print(f"   ✅ {field}: {client_profile[field]}")
+            else:
+                system_fields_missing.append(field)
+                print(f"   ❌ {field}: Missing or null")
+        
+        system_fields_test = len(system_fields_missing) == 0
+        
+        # Step 4: Verify New Comprehensive Field Structure
+        print(f"\n🔍 Step 4: Verifying comprehensive field structure...")
+        
+        # Define all comprehensive field categories
+        comprehensive_fields = {
+            "Form Registration Details": [
+                'registration_date', 'serial_number', 'registration_number'
+            ],
+            "Expanded Bio Data": [
+                'age', 'tribe', 'contact_1', 'contact_2', 'place_of_birth', 
+                'present_address', 'subcounty', 'district', 'marital_status', 
+                'number_of_kids', 'height', 'weight', 'position_applied_for', 'religion'
+            ],
+            "Next of Kin Fields": [
+                'next_of_kin_name', 'next_of_kin_contact_1', 'next_of_kin_contact_2',
+                'next_of_kin_address', 'next_of_kin_subcounty', 'next_of_kin_district',
+                'next_of_kin_relationship', 'next_of_kin_age'
+            ],
+            "Parent's Details - Father": [
+                'father_name', 'father_contact_1', 'father_contact_2',
+                'father_address', 'father_subcounty', 'father_district'
+            ],
+            "Parent's Details - Mother": [
+                'mother_name', 'mother_contact_1', 'mother_contact_2',
+                'mother_address', 'mother_subcounty', 'mother_district'
+            ],
+            "Agent Information": [
+                'agent_name', 'agent_contact'
+            ]
+        }
+        
+        field_structure_results = {}
+        total_fields_present = 0
+        total_fields_expected = 0
+        
+        for category, fields in comprehensive_fields.items():
+            present_fields = []
+            missing_fields = []
+            
+            for field in fields:
+                total_fields_expected += 1
+                if field in client_profile:
+                    present_fields.append(field)
+                    total_fields_present += 1
+                else:
+                    missing_fields.append(field)
+            
+            field_structure_results[category] = {
+                'present': present_fields,
+                'missing': missing_fields,
+                'success': len(missing_fields) == 0
+            }
+            
+            print(f"   📋 {category}:")
+            print(f"      ✅ Present: {len(present_fields)}/{len(fields)} fields")
+            if missing_fields:
+                print(f"      ❌ Missing: {missing_fields}")
+        
+        field_structure_test = total_fields_present == total_fields_expected
+        print(f"\n   📊 Overall Field Structure: {total_fields_present}/{total_fields_expected} fields present")
+        
+        # Step 5: Test Profile Update with New Fields
+        print(f"\n🔍 Step 5: Testing profile update with comprehensive fields...")
+        
+        # Create comprehensive update data with realistic values
+        update_data = {
+            # Bio Data updates
+            "age": 28,
+            "tribe": "Baganda",
+            "contact_1": "+256701234567",
+            "contact_2": "+256702345678",
+            "place_of_birth": "Kampala",
+            "present_address": "Plot 123, Nakawa Division",
+            "subcounty": "Nakawa",
+            "district": "Kampala",
+            "marital_status": "Single",
+            "number_of_kids": 0,
+            "height": "5'8\"",
+            "weight": "70kg",
+            "position_applied_for": "Construction Worker",
+            "religion": "Christian",
+            
+            # Next of Kin updates
+            "next_of_kin_name": "Sarah Nakato",
+            "next_of_kin_contact_1": "+256703456789",
+            "next_of_kin_relationship": "Sister",
+            "next_of_kin_age": 25,
+            
+            # Parent's Details updates
+            "father_name": "John Mukasa",
+            "father_contact_1": "+256704567890",
+            "mother_name": "Mary Nakato",
+            "mother_contact_1": "+256705678901",
+            
+            # Agent Information updates
+            "agent_name": "Gulf Consultants Agent",
+            "agent_contact": "+256706789012"
+        }
+        
+        # Test profile update using the onboard endpoint (which handles comprehensive updates)
+        success, updated_profile = self.run_test(
+            "Comprehensive Profile Update",
+            "PUT",
+            f"admin/clients/{test_client_id}/onboard",
+            200,
+            data=update_data,
+            headers=headers
+        )
+        
+        profile_update_test = success
+        if success:
+            print(f"✅ Profile update successful")
+            
+            # Verify some of the updated fields
+            verification_fields = ['age', 'tribe', 'contact_1', 'next_of_kin_name', 'father_name', 'agent_name']
+            verified_updates = []
+            failed_updates = []
+            
+            for field in verification_fields:
+                if field in updated_profile and updated_profile[field] == update_data[field]:
+                    verified_updates.append(field)
+                    print(f"      ✅ {field}: {updated_profile[field]}")
+                else:
+                    failed_updates.append(field)
+                    print(f"      ❌ {field}: Expected {update_data[field]}, got {updated_profile.get(field, 'None')}")
+            
+            if failed_updates:
+                print(f"   ⚠️  Some field updates failed: {failed_updates}")
+                profile_update_test = False
+        else:
+            print(f"❌ Profile update failed")
+        
+        # Step 6: Verify Updated Profile Retrieval
+        print(f"\n🔍 Step 6: Verifying updated profile retrieval...")
+        
+        success, final_profile = self.run_test(
+            "Verify Updated Profile Retrieval",
+            "GET",
+            f"admin/clients/{test_client_id}",
+            200,
+            headers=headers
+        )
+        
+        final_verification_test = success
+        if success:
+            print(f"✅ Updated profile retrieved successfully")
+            
+            # Verify persistence of updates
+            persistent_updates = []
+            non_persistent_updates = []
+            
+            for field, expected_value in update_data.items():
+                if field in final_profile and final_profile[field] == expected_value:
+                    persistent_updates.append(field)
+                else:
+                    non_persistent_updates.append(field)
+            
+            print(f"   ✅ Persistent updates: {len(persistent_updates)}/{len(update_data)} fields")
+            if non_persistent_updates:
+                print(f"   ⚠️  Non-persistent updates: {non_persistent_updates[:5]}...")  # Show first 5
+        else:
+            print(f"❌ Could not verify updated profile")
+        
+        # Step 7: Test Backward Compatibility
+        print(f"\n🔍 Step 7: Testing backward compatibility...")
+        
+        # Check that legacy fields are still present
+        legacy_fields = ['first_name', 'last_name', 'status', 'created_at', 'updated_at']
+        legacy_compatibility = []
+        legacy_missing = []
+        
+        for field in legacy_fields:
+            if field in client_profile:
+                legacy_compatibility.append(field)
+            else:
+                legacy_missing.append(field)
+        
+        backward_compatibility_test = len(legacy_missing) == 0
+        
+        if backward_compatibility_test:
+            print(f"   ✅ All legacy fields present: {legacy_compatibility}")
+        else:
+            print(f"   ❌ Missing legacy fields: {legacy_missing}")
+        
+        # Calculate overall results
+        print(f"\n📊 COMPREHENSIVE CLIENT PROFILE TEST SUMMARY:")
+        print(f"   ✅ Profile Retrieval: {'PASS' if success else 'FAIL'}")
+        print(f"   ✅ System-Generated Fields: {'PASS' if system_fields_test else 'FAIL'}")
+        print(f"   ✅ Comprehensive Field Structure: {'PASS' if field_structure_test else 'FAIL'}")
+        print(f"   ✅ Profile Update: {'PASS' if profile_update_test else 'FAIL'}")
+        print(f"   ✅ Updated Profile Verification: {'PASS' if final_verification_test else 'FAIL'}")
+        print(f"   ✅ Backward Compatibility: {'PASS' if backward_compatibility_test else 'FAIL'}")
+        
+        # Overall success
+        overall_success = (
+            success and 
+            system_fields_test and 
+            field_structure_test and 
+            profile_update_test and 
+            final_verification_test and 
+            backward_compatibility_test
+        )
+        
+        if overall_success:
+            print(f"\n🎉 COMPREHENSIVE CLIENT PROFILE FUNCTIONALITY: ALL TESTS PASSED")
+            print(f"   ✅ Client profile retrieval working with all comprehensive fields")
+            print(f"   ✅ System-generated fields (serial_number, registration_number) populated")
+            print(f"   ✅ All comprehensive field categories present in response")
+            print(f"   ✅ Profile updates working with new comprehensive field structure")
+            print(f"   ✅ Backward compatibility maintained with existing fields")
+        else:
+            print(f"\n⚠️  COMPREHENSIVE CLIENT PROFILE FUNCTIONALITY: SOME TESTS FAILED")
+            print(f"   ⚠️  Review failed tests above for issues that need attention")
+        
+        return overall_success
+
 def main():
     print("🚀 Gulf Consultants Job Placement API Tests")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
