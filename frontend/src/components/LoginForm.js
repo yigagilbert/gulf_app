@@ -283,13 +283,13 @@ const LoginForm = ({ onToggle, isClient = false }) => {
         </form>
 
         {/* Demo Credentials */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        {/* <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <h4 className="text-sm font-medium text-gray-900 mb-2">Demo Credentials:</h4>
           <div className="space-y-1 text-sm text-gray-700">
             <p><strong>Admin:</strong> admin@example.com / admin123</p>
             <p><strong>Client:</strong> test@example.com / testpassword123</p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
