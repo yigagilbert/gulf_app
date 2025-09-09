@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Phone } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import LoadingSpinner from './LoadingSpinner';
 
-const LoginForm = ({ onToggle }) => {
+const LoginForm = ({ onToggle, isClient = false }) => {
   const { login, loading, error } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
+    phone_number: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -16,16 +17,26 @@ const LoginForm = ({ onToggle }) => {
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Please enter a valid email';
+    if (isClient) {
+      // Client login validation - phone number required
+      if (!formData.phone_number.trim()) {
+        errors.phone_number = 'Phone number is required';
+      } else if (formData.phone_number.length < 10) {
+        errors.phone_number = 'Please enter a valid phone number';
+      }
+    } else {
+      // Admin login validation - email required
+      if (!formData.email.trim()) {
+        errors.email = 'Email is required';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        errors.email = 'Please enter a valid email';
+      }
     }
     
     if (!formData.password.trim()) {
       errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 7) {
+      errors.password = 'Password must be more than 6 characters';
     }
     
     return errors;
@@ -43,7 +54,11 @@ const LoginForm = ({ onToggle }) => {
     
     setIsSubmitting(true);
     try {
-      await login(formData);
+      const loginData = isClient 
+        ? { phone_number: formData.phone_number, password: formData.password }
+        : { email: formData.email, password: formData.password };
+      
+      await login(loginData, isClient);
     } catch (err) {
       console.error('Login failed:', err);
     } finally {
