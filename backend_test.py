@@ -4155,91 +4155,42 @@ class JobPlacementAPITester:
         return chat_success
 
 def main():
-    print("🚀 Gulf Consultants Job Placement API Tests")
+    print("🚀 ENHANCED ADMIN JOB MANAGEMENT ENDPOINTS TESTING")
     print("🌐 Testing Backend URL: https://consultportal.preview.emergentagent.com/api")
     print("=" * 60)
     
     tester = JobPlacementAPITester()
     
-    # Check if we should run chat system tests specifically
+    # Check if we should run specific tests
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "chat":
         print("\n💬 RUNNING CHAT SYSTEM TESTS ONLY")
         print("=" * 60)
         return tester.run_chat_system_tests()
     
-    # Test sequence focusing on review request requirements
+    # Test sequence focusing on enhanced admin job management endpoints
     print("\n🏥 HEALTH CHECK TEST")
     print("-" * 30)
     health_success = tester.test_health_check()
+    
+    if not health_success:
+        print("❌ Health check failed - API may not be running")
+        return 1
     
     print("\n🔐 AUTHENTICATION ENDPOINT TESTS")
     print("-" * 40)
     auth_success = tester.test_authentication_endpoints()
     
-    print("\n👤 PROFILE ENDPOINT TESTS")
-    print("-" * 40)
-    profile_success = tester.test_profile_endpoints()
+    if not auth_success:
+        print("❌ Authentication tests failed - cannot proceed with admin tests")
+        return 1
     
-    print("\n🔧 ADMIN ENDPOINT TESTS")
-    print("-" * 40)
-    admin_success = tester.test_admin_endpoints_specific()
+    # Main focus: Enhanced Admin Job Management Endpoints
+    print("\n" + "="*60)
+    print("🎯 FOCUS: ENHANCED ADMIN JOB MANAGEMENT ENDPOINTS")
+    print("="*60)
     
-    print("\n🔑 JWT TOKEN VALIDATION TESTS")
-    print("-" * 40)
-    jwt_success = tester.test_jwt_validation()
-    
-    print("\n🔒 ADMIN CLIENT LIST FILTERING TESTS")
-    print("-" * 50)
-    admin_filtering_success = tester.test_admin_client_filtering()
-    
-    print("\n🏢 GULF CONSULTANTS ADMIN CLIENT DETAILS TESTS")
-    print("-" * 50)
-    gulf_admin_success = tester.test_gulf_consultants_admin_client_details()
-    
-    print("\n📄 ADMIN DOCUMENT UPLOAD PERMISSIONS TESTS")
-    print("-" * 50)
-    document_upload_success = tester.test_admin_document_upload_permissions()
-    
-    print("\n🚨 FRONTEND 403 FORBIDDEN ISSUE REPRODUCTION")
-    print("-" * 50)
-    frontend_403_success = tester.test_frontend_403_issue_reproduction()
-    
-    print("\n🏢 GULF CONSULTANTS CLIENT STATUS MANAGEMENT TESTS")
-    print("-" * 60)
-    status_management_success = tester.test_gulf_consultants_status_management()
-    
-    print("\n🗑️  GULF CONSULTANTS CLIENT DELETION TESTS")
-    print("-" * 60)
-    client_deletion_success = tester.test_gulf_consultants_client_deletion()
-    
-    print("\n📸 ADMIN CLIENT PROFILE PHOTO UPLOAD TESTS")
-    print("-" * 60)
-    photo_upload_success = tester.test_admin_client_profile_photo_upload()
-    
-    print("\n🏢 COMPREHENSIVE CLIENT PROFILE FUNCTIONALITY TESTS")
-    print("-" * 70)
-    comprehensive_profile_success = tester.test_comprehensive_client_profile_functionality()
-    
-    print("\n📱 PHONE-BASED CLIENT AUTHENTICATION SYSTEM TESTS")
-    print("-" * 70)
-    phone_auth_success = tester.test_phone_based_authentication_system()
-    
-    print("\n🔐 CLIENT REGISTRATION RESPONSE FORMAT TESTS")
-    print("-" * 70)
-    registration_format_success = tester.test_client_registration_response_format()
-    
-    print("\n🏢 COMPREHENSIVE CLIENT ONBOARDING SYSTEM TESTS")
-    print("-" * 70)
-    onboarding_system_success = tester.test_comprehensive_client_onboarding_system()
-    
-    print("\n💬 COMPREHENSIVE CHAT SYSTEM TESTS")
-    print("-" * 70)
-    chat_system_success = tester.test_comprehensive_chat_system()
-    
-    print("\n💼 COMPREHENSIVE JOB MANAGEMENT SYSTEM TESTS")
-    print("-" * 70)
-    job_management_success = tester.test_comprehensive_job_management_system()
+    enhanced_admin_job_success = tester.test_enhanced_admin_job_management_endpoints()
     
     # Print final results
     print("\n" + "=" * 60)
@@ -4252,31 +4203,25 @@ def main():
     print("\n📋 TEST SUMMARY:")
     print(f"   ✅ Health Check: {'PASS' if health_success else 'FAIL'}")
     print(f"   ✅ Authentication: {'PASS' if auth_success else 'FAIL'}")
-    print(f"   ✅ Profile Endpoints: {'PASS' if profile_success else 'FAIL'}")
-    print(f"   ✅ Admin Endpoints: {'PASS' if admin_success else 'FAIL'}")
-    print(f"   ✅ JWT Validation: {'PASS' if jwt_success else 'FAIL'}")
-    print(f"   ✅ Admin Client Filtering: {'PASS' if admin_filtering_success else 'FAIL'}")
-    print(f"   ✅ Gulf Admin Client Details: {'PASS' if gulf_admin_success else 'FAIL'}")
-    print(f"   ✅ Admin Document Upload: {'PASS' if document_upload_success else 'FAIL'}")
-    print(f"   ✅ Frontend 403 Issue Test: {'PASS' if frontend_403_success else 'FAIL'}")
-    print(f"   ✅ Status Management System: {'PASS' if status_management_success else 'FAIL'}")
-    print(f"   ✅ Client Deletion System: {'PASS' if client_deletion_success else 'FAIL'}")
-    print(f"   ✅ Admin Photo Upload System: {'PASS' if photo_upload_success else 'FAIL'}")
-    print(f"   ✅ Comprehensive Client Profile: {'PASS' if comprehensive_profile_success else 'FAIL'}")
-    print(f"   ✅ Phone-Based Authentication: {'PASS' if phone_auth_success else 'FAIL'}")
-    print(f"   ✅ Registration Response Format: {'PASS' if registration_format_success else 'FAIL'}")
-    print(f"   ✅ Comprehensive Onboarding System: {'PASS' if onboarding_system_success else 'FAIL'}")
-    print(f"   ✅ Comprehensive Chat System: {'PASS' if chat_system_success else 'FAIL'}")
-    print(f"   ✅ Comprehensive Job Management System: {'PASS' if job_management_success else 'FAIL'}")
+    print(f"   ✅ Enhanced Admin Job Management: {'PASS' if enhanced_admin_job_success else 'FAIL'}")
     
-    if success_rate >= 80:
-        print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
+    if enhanced_admin_job_success:
+        print("\n🎉 ENHANCED ADMIN JOB MANAGEMENT ENDPOINTS: ALL TESTS PASSED!")
+        print("✅ Admin job management system is fully functional")
+        print("✅ All required endpoints working correctly:")
+        print("   • GET /api/admin/jobs - Admin job listing with filtering")
+        print("   • GET /api/admin/jobs/{job_id} - Detailed job information")
+        print("   • GET /api/admin/jobs/{job_id}/applications - Job-specific applications")
+        print("   • GET /api/admin/applications - All applications with filtering")
+        print("   • GET /api/admin/applications/{application_id} - Detailed application info")
+        print("   • PUT /api/admin/applications/{application_id}/status - Status management")
+        print("   • GET /api/admin/analytics/jobs - Dashboard analytics")
+        print("✅ Authentication and authorization working properly")
+        print("✅ Error handling is robust")
         return 0
-    elif success_rate >= 60:
-        print("\n⚠️  Overall: GOOD - Minor issues found")
-        return 1
     else:
-        print("\n❌ Overall: POOR - Major issues found")
+        print("\n⚠️  ENHANCED ADMIN JOB MANAGEMENT: SOME TESTS FAILED")
+        print("❌ Review test results above for specific issues")
         return 1
 
 if __name__ == "__main__":
