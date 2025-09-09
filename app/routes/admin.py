@@ -751,3 +751,223 @@ def _get_onboarding_completion(profile: ClientProfile) -> dict:
         "required_completed": filled_required,
         "optional_completed": filled_optional
     }
+
+# ===== JOB MANAGEMENT ENDPOINTS =====
+
+@router.get("/jobs", response_model=list[JobOpportunityResponse])
+def admin_get_jobs(
+    skip: int = 0,
+    limit: int = 100,
+    is_active: Optional[bool] = None,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all jobs with admin-specific filtering"""
+    query = db.query(JobOpportunity)
+    
+    if is_active is not None:
+        query = query.filter(JobOpportunity.is_active == is_active)
+    
+    jobs = query.order_by(JobOpportunity.created_at.desc()).offset(skip).limit(limit).all()
+    return jobs
+
+@router.get("/jobs/{job_id}", response_model=JobOpportunityResponse)
+def admin_get_job_details(
+    job_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed job information"""
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+@router.get("/jobs/{job_id}/applications", response_model=list[JobApplicationResponse])
+def admin_get_job_applications(
+    job_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all applications for a specific job"""
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    applications = db.query(JobApplication).filter(
+        JobApplication.job_id == job_id
+    ).order_by(JobApplication.created_at.desc()).all()
+    
+    return applications
+
+# ===== APPLICATION MANAGEMENT ENDPOINTS =====
+
+@router.get("/applications", response_model=list[JobApplicationResponse])
+def admin_get_all_applications(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all job applications with optional status filtering"""
+    query = db.query(JobApplication)
+    
+    if status:
+        query = query.filter(JobApplication.application_status == status)
+    
+    applications = query.order_by(JobApplication.created_at.desc()).offset(skip).limit(limit).all()
+    return applications
+
+@router.get("/applications/{application_id}")
+def admin_get_application_details(
+    application_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed application information including client details"""
+    application = db.query(JobApplication).filter(JobApplication.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    # Get client details
+    client = db.query(ClientProfile).filter(ClientProfile.id == application.client_id).first()
+    job = db.query(JobOpportunity).filter(JobOpportunity.id == application.job_id).first()
+    
+    return {
+        "application": {
+            "id": application.id,
+            "application_status": application.application_status,
+            "applied_date": application.applied_date,
+            "interview_date": application.interview_date,
+            "notes": application.notes,
+            "created_at": application.created_at,
+            "updated_at": application.updated_at
+        },
+        "client": {
+            "id": client.id if client else None,
+            "first_name": client.first_name if client else None,
+            "last_name": client.last_name if client else None,
+            "contact_1": client.contact_1 if client else None,
+            "position_applied_for": client.position_applied_for if client else None,
+            "status": client.status if client else None
+        },
+        "job": {
+            "id": job.id if job else None,
+            "title": job.title if job else None,
+            "company_name": job.company_name if job else None,
+            "country": job.country if job else None,
+            "city": job.city if job else None
+        }
+    }
+
+@router.put("/applications/{application_id}/status")
+def admin_update_application_status(
+    application_id: str,
+    status_data: dict,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update application status (applied, interview_scheduled, hired, rejected)"""
+    application = db.query(JobApplication).filter(JobApplication.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    new_status = status_data.get('status')
+    interview_date = status_data.get('interview_date')
+    notes = status_data.get('notes')
+    
+    # Valid status values based on ApplicationStatus enum
+    valid_statuses = ['applied', 'interview_scheduled', 'hired', 'rejected']
+    if new_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    try:
+        application.application_status = new_status
+        if interview_date:
+            from datetime import datetime
+            application.interview_date = datetime.fromisoformat(interview_date.replace('Z', '+00:00'))
+        if notes:
+            application.notes = notes
+        application.processed_by = admin_user.id
+        application.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(application)
+        
+        return {
+            "message": "Application status updated successfully",
+            "application_id": application.id,
+            "new_status": application.application_status
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update application status: {str(e)}"
+        )
+
+@router.get("/analytics/jobs")
+def admin_job_analytics(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get job and application analytics for admin dashboard"""
+    try:
+        # Job statistics
+        total_jobs = db.query(JobOpportunity).count()
+        active_jobs = db.query(JobOpportunity).filter(JobOpportunity.is_active == True).count()
+        inactive_jobs = total_jobs - active_jobs
+        
+        # Application statistics
+        total_applications = db.query(JobApplication).count()
+        pending_applications = db.query(JobApplication).filter(
+            JobApplication.application_status == 'applied'
+        ).count()
+        scheduled_interviews = db.query(JobApplication).filter(
+            JobApplication.application_status == 'interview_scheduled'
+        ).count()
+        hired_applications = db.query(JobApplication).filter(
+            JobApplication.application_status == 'hired'
+        ).count()
+        rejected_applications = db.query(JobApplication).filter(
+            JobApplication.application_status == 'rejected'
+        ).count()
+        
+        # Recent activity (last 30 days)
+        from datetime import datetime, timedelta
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        recent_jobs = db.query(JobOpportunity).filter(
+            JobOpportunity.created_at >= thirty_days_ago
+        ).count()
+        
+        recent_applications = db.query(JobApplication).filter(
+            JobApplication.created_at >= thirty_days_ago
+        ).count()
+        
+        return {
+            "jobs": {
+                "total": total_jobs,
+                "active": active_jobs,
+                "inactive": inactive_jobs,
+                "recent_created": recent_jobs
+            },
+            "applications": {
+                "total": total_applications,
+                "pending": pending_applications,
+                "interview_scheduled": scheduled_interviews,
+                "hired": hired_applications,
+                "rejected": rejected_applications,
+                "recent_submitted": recent_applications
+            },
+            "conversion_rate": round((hired_applications / total_applications * 100) if total_applications > 0 else 0, 2)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get analytics: {str(e)}"
+        )
