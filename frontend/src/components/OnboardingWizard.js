@@ -490,15 +490,6 @@ const OnboardingWizard = ({ onComplete }) => {
 
         {/* Main Content */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              {steps[currentStep].title}
-            </h2>
-            <p className="text-gray-600">
-              {steps[currentStep].description}
-            </p>
-          </div>
-
           {renderStepContent()}
 
           {/* Navigation */}
