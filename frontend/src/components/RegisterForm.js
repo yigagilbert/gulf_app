@@ -202,49 +202,51 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Name fields */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">First Name</label>
-            <input
-              type="text"
-              name="first_name"
-              value={formData.first_name}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="John"
-              required
-              disabled={loading}
-            />
-            {errors.first_name && (
-              <div className="flex items-center text-sm text-red-600 mt-1">
-                <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.first_name}
-              </div>
-            )}
+        {/* Name fields - Only for Client Registration */}
+        {isClient && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <input
+                type="text"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="John"
+                required
+                disabled={loading}
+              />
+              {errors.first_name && (
+                <div className="flex items-center text-sm text-red-600 mt-1">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.first_name}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Doe"
+                required
+                disabled={loading}
+              />
+              {errors.last_name && (
+                <div className="flex items-center text-sm text-red-600 mt-1">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.last_name}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Last Name</label>
-            <input
-              type="text"
-              name="last_name"
-              value={formData.last_name}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="Doe"
-              required
-              disabled={loading}
-            />
-            {errors.last_name && (
-              <div className="flex items-center text-sm text-red-600 mt-1">
-                <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.last_name}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Phone Number - Primary Field for Clients */}
         {isClient && (
