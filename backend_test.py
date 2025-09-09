@@ -3805,6 +3805,7 @@ def main():
     print(f"   ✅ Registration Response Format: {'PASS' if registration_format_success else 'FAIL'}")
     print(f"   ✅ Comprehensive Onboarding System: {'PASS' if onboarding_system_success else 'FAIL'}")
     print(f"   ✅ Comprehensive Chat System: {'PASS' if chat_system_success else 'FAIL'}")
+    print(f"   ✅ Comprehensive Job Management System: {'PASS' if job_management_success else 'FAIL'}")
     
     if success_rate >= 80:
         print("\n🎉 Overall: EXCELLENT - Gulf Consultants API is working properly")
