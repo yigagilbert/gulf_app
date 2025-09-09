@@ -473,8 +473,8 @@ class APIServiceClass {
     });
   }
 
-  async uploadProfilePhoto(clientId, formData) {
-    return this.request(`/profile/${clientId}/photo`, {
+  async uploadClientProfilePhoto(clientId, formData) {
+    return this.request(`/admin/clients/${clientId}/photo`, {
       method: 'POST',
       body: formData,
       skipContentType: true
