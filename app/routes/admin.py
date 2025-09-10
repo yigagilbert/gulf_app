@@ -17,6 +17,7 @@ from app.dependencies import get_admin_user
 from app.utils import get_password_hash, create_access_token
 import random
 import string
+import base64
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -701,6 +702,10 @@ def upload_client_profile_photo_admin(
         client.updated_at = datetime.utcnow()
         client.last_modified_by = admin_user.id
         
+        # After saving file to disk (or instead of it):
+        file_bytes = file.file.read()
+        client.profile_photo_data = file_bytes
+        
         db.commit()
         db.refresh(client)
         
@@ -765,3 +770,12 @@ def get_client_profile_by_user_id(
             detail="Client not found"
         )
     return client_profile
+
+@router.get("/clients/{client_id}/photo")
+def get_client_photo(client_id: str, db: Session = Depends(get_db)):
+    profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not profile or not profile.profile_photo_data:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return {
+        "photo_base64": base64.b64encode(profile.profile_photo_data).decode("utf-8")
+    }

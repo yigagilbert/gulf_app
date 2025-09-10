@@ -284,7 +284,7 @@ const AdminClientDetailsPage = () => {
               <div className="relative">
                 {client.profile_photo_url ? (
                   <img
-                    src={client.profile_photo_url}
+                    src={`data:image/jpeg;base64,${client.profile_photo_data}`} // Updated line
                     alt={clientName}
                     className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg object-cover"
                   />
