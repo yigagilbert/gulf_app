@@ -16,6 +16,7 @@ import { useAuth } from '../AuthProvider';
 const AdminChatTab = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
+  const [userProfiles, setUserProfiles] = useState({}); // userId -> {name, photo}
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -38,6 +39,30 @@ const AdminChatTab = () => {
     }
   }, [selectedConversation]);
 
+  // Helper to fetch user profile by ID
+  const fetchUserProfile = async (userId) => {
+    try {
+      // You should have an endpoint like /admin/clients/{userId} or /users/{userId}
+      const profile = await APIService.getUserProfile(userId);
+      return {
+        name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Unknown',
+        photo: profile.profile_photo_url || null,
+      };
+    } catch {
+      return { name: 'Unknown', photo: null };
+    }
+  };
+
+  // Fetch all user profiles for conversations
+  const fetchAllUserProfiles = async (convs) => {
+    const ids = Array.from(new Set(convs.map(c => c.userId)));
+    const profiles = {};
+    await Promise.all(ids.map(async (id) => {
+      profiles[id] = await fetchUserProfile(id);
+    }));
+    setUserProfiles(profiles);
+  };
+
   const loadInbox = async () => {
     setLoading(true);
     try {
@@ -52,7 +77,6 @@ const AdminChatTab = () => {
             userId: otherUserId,
             lastMessage: message,
             unreadCount: 0,
-            userEmail: 'Loading...' // This should be fetched from user data
           };
         }
         
@@ -66,8 +90,9 @@ const AdminChatTab = () => {
           conversationsMap[otherUserId].unreadCount++;
         }
       });
-      
-      setConversations(Object.values(conversationsMap));
+      const convs = Object.values(conversationsMap);
+      setConversations(convs);
+      await fetchAllUserProfiles(convs);
     } catch (error) {
       console.error('Failed to load inbox:', error);
     } finally {
@@ -131,10 +156,13 @@ const AdminChatTab = () => {
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.lastMessage.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(conv => {
+    const profile = userProfiles[conv.userId] || {};
+    return (
+      (profile.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.lastMessage.content.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const groupedMessages = messages.reduce((groups, message) => {
     const date = formatDate(message.sent_at);
@@ -178,44 +206,54 @@ const AdminChatTab = () => {
               <p>No conversations yet</p>
             </div>
           ) : (
-            filteredConversations.map((conv) => (
-              <div
-                key={conv.userId}
-                onClick={() => setSelectedConversation(conv)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  selectedConversation?.userId === conv.userId ? 'bg-blue-50 border-blue-200' : ''
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                      <User className="h-5 w-5 text-gray-600" />
+            filteredConversations.map((conv) => {
+              const profile = userProfiles[conv.userId] || {};
+              return (
+                <div
+                  key={conv.userId}
+                  onClick={() => setSelectedConversation(conv)}
+                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                    selectedConversation?.userId === conv.userId ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      {profile.photo ? (
+                        <img
+                          src={profile.photo}
+                          alt={profile.name}
+                          className="w-10 h-10 rounded-full object-cover border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-gray-600" />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {conv.userEmail}
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        {conv.unreadCount > 0 && (
-                          <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                            {conv.unreadCount}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {profile.name || 'Unknown'}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          {conv.unreadCount > 0 && (
+                            <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {formatTime(conv.lastMessage.sent_at)}
                           </span>
-                        )}
-                        <span className="text-xs text-gray-500">
-                          {formatTime(conv.lastMessage.sent_at)}
-                        </span>
+                        </div>
                       </div>
+                      <p className="text-sm text-gray-600 truncate mt-1">
+                        {conv.lastMessage.content}
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-600 truncate mt-1">
-                      {conv.lastMessage.content}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

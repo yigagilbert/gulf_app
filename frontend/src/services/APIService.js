@@ -526,6 +526,13 @@ class APIServiceClass {
       return { status: 'error', message: error.message };
     }
   }
+
+  /**
+   * Get user profile by ID (Admin only)
+   */
+  static async getUserProfile(userId) {
+    return this.request(`/admin/clients/${userId}`);
+  }
 }
 
 // Create singleton instance
