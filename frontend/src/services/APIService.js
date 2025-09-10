@@ -533,6 +533,10 @@ class APIServiceClass {
   static async getUserProfile(userId) {
     return this.request(`/admin/clients/${userId}`);
   }
+
+  async getClientProfileByUserId(userId) {
+    return this.request(`/admin/clients/by_user/${userId}`);
+  }
 }
 
 // Create singleton instance

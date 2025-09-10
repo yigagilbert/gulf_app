@@ -750,3 +750,18 @@ def _get_onboarding_completion(profile: ClientProfile) -> dict:
         "required_completed": filled_required,
         "optional_completed": filled_optional
     }
+
+@router.get("/clients/by_user/{user_id}", response_model=ClientProfileResponse)
+def get_client_profile_by_user_id(
+    user_id: str,
+    # admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get client profile by user ID (for chat sidebar)"""
+    client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == user_id).first()
+    if not client_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    return client_profile

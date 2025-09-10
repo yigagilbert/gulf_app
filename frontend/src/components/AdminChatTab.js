@@ -43,12 +43,14 @@ const AdminChatTab = () => {
   const fetchUserProfile = async (userId) => {
     try {
       // You should have an endpoint like /admin/clients/{userId} or /users/{userId}
-      const profile = await APIService.getUserProfile(userId);
+      const profile = await APIService.getClientProfileByUserId(userId);
+      console.log('Fetched profile for userId', userId, profile);
       return {
         name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Unknown',
         photo: profile.profile_photo_url || null,
       };
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch profile for userId', userId, error);
       return { name: 'Unknown', photo: null };
     }
   };
