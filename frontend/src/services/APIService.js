@@ -5,7 +5,7 @@
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_BACKEND_URL || 'https://consultportal.preview.emergentagent.com/api', // Use .env value or fallback
+  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'https://consultportal.preview.emergentagent.com/api', // Use .env value or fallback
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
