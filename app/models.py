@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, String, Boolean, DateTime, Text, Date, Integer, DECIMAL, ForeignKey, Enum, LargeBinary
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Date, Integer, DECIMAL, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -138,7 +138,6 @@ class ClientProfile(Base):
     
     # Profile Management
     profile_photo_url = Column(String)
-    profile_photo_data = Column(LargeBinary)  # <-- Add this line
     status = Column(Enum(ClientStatus), default=ClientStatus.new)
     verification_notes = Column(Text)
     verified_by = Column(String, ForeignKey("users.id"))
@@ -167,7 +166,6 @@ class Document(Base):
     document_type = Column(Enum(DocumentType), nullable=False)
     file_name = Column(String, nullable=False)
     file_url = Column(String, nullable=False)
-    file_data = Column(LargeBinary)  # <-- Add this line
     file_size = Column(Integer)
     mime_type = Column(String)
     is_verified = Column(Boolean, default=False)

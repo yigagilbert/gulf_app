@@ -309,10 +309,6 @@ def upload_profile_photo(
         profile.updated_at = datetime.utcnow()
         profile.last_modified_by = current_user.id
         
-        # After saving file to disk (or instead of it):
-        file_bytes = file.file.read()
-        profile.profile_photo_data = file_bytes
-        
         db.commit()
         db.refresh(profile)
         

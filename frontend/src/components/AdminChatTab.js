@@ -47,7 +47,7 @@ const AdminChatTab = () => {
       console.log('Fetched profile for userId', userId, profile);
       return {
         name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Unknown',
-        photo: profile.profile_photo_data || null,
+        photo: profile.profile_photo_url || null,
       };
     } catch (error) {
       console.error('Failed to fetch profile for userId', userId, error);
@@ -222,7 +222,7 @@ const AdminChatTab = () => {
                     <div className="flex-shrink-0">
                       {profile.photo ? (
                         <img
-                          src={`data:image/jpeg;base64,${profile.photo}`} // Updated line
+                          src={profile.photo}
                           alt={profile.name}
                           className="w-10 h-10 rounded-full object-cover border"
                         />

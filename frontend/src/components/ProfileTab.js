@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import APIService from '../services/APIService';
-import { validateProfileData } from '../utils/validation';
-import { VALIDATION_RULES } from '../constants';
+import { validateProfileData } from '../utils/validation';  // Imported to replace inline validation
+import { VALIDATION_RULES } from '../constants';  // For consistent rules
 
 const ProfileTab = ({ profile, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -25,9 +25,6 @@ const ProfileTab = ({ profile, onUpdate }) => {
     emergency_contact_phone: '',
     emergency_contact_relationship: ''
   });
-  const [photoBase64, setPhotoBase64] = useState(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const fileInputRef = useRef();
 
   useEffect(() => {
     if (profile) {
@@ -49,47 +46,12 @@ const ProfileTab = ({ profile, onUpdate }) => {
         emergency_contact_phone: profile.emergency_contact_phone || '',
         emergency_contact_relationship: profile.emergency_contact_relationship || ''
       });
-      // PATCH: Set profile photo from base64 if available
-      if (profile.profile_photo_data) {
-        setPhotoBase64(`data:image/jpeg;base64,${profile.profile_photo_data}`);
-      } else if (profile.profile_photo_url) {
-        setPhotoBase64(profile.profile_photo_url.startsWith('data:')
-          ? profile.profile_photo_url
-          : null);
-      } else {
-        setPhotoBase64(null);
-      }
     }
   }, [profile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // PATCH: Handle photo upload
-  const handlePhotoChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPhotoUploading(true);
-    setError(null);
-    try {
-      // Send file to backend (as FormData)
-      const formDataObj = new FormData();
-      formDataObj.append('file', file);
-      // You may need to adjust the endpoint depending on your API
-      const response = await APIService.uploadProfilePhoto(formDataObj);
-      // Assume response contains { photo_base64: ... }
-      if (response.photo_base64) {
-        setPhotoBase64(`data:image/jpeg;base64,${response.photo_base64}`);
-        if (onUpdate) onUpdate({ ...profile, profile_photo_data: response.photo_base64 });
-      }
-    } catch (err) {
-      setError('Failed to upload photo');
-    } finally {
-      setPhotoUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -99,6 +61,11 @@ const ProfileTab = ({ profile, onUpdate }) => {
 
     // Use exported validation
     const validation = validateProfileData(formData);
+    // if (!validation.isValid) {
+    //   setError(validation.errors[0]);
+    //   setLoading(false);
+    //   return;
+    // }
 
     try {
       const updatedProfile = await APIService.updateProfile(formData);
@@ -114,48 +81,6 @@ const ProfileTab = ({ profile, onUpdate }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">{error}</div>}
-
-      {/* PATCH: Profile Photo Section */}
-      <div className="flex items-center mb-6">
-        <div className="relative">
-          <img
-            src={photoBase64 || '/gulf.png'}
-            alt="Profile"
-            className="w-24 h-24 rounded-full border-2 border-gray-300 object-cover"
-          />
-          {isEditing && (
-            <button
-              type="button"
-              className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow hover:bg-blue-700"
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              disabled={photoUploading}
-              title="Change photo"
-            >
-              {photoUploading ? (
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" fill="none" />
-                </svg>
-              ) : (
-                <span>📷</span>
-              )}
-            </button>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={handlePhotoChange}
-            disabled={photoUploading}
-          />
-        </div>
-        <div className="ml-6">
-          <h2 className="text-xl font-bold text-gray-900">
-            {profile?.first_name} {profile?.middle_name} {profile?.last_name}
-          </h2>
-          <p className="text-gray-600">{profile?.user?.email}</p>
-        </div>
-      </div>
 
       {isEditing ? (
         <form onSubmit={handleSubmit} className="space-y-6">

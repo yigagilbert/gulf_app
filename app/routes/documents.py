@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -8,8 +9,6 @@ from app.models import User, Document, ClientProfile
 from app.schemas import DocumentUploadResponse
 from app.database import get_db
 from app.dependencies import get_current_user
-import base64
-
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -54,8 +53,6 @@ async def upload_document(
         mime_type=file.content_type,
         is_verified=False
     )
-    file_bytes = file.file.read()
-    document.file_data = file_bytes
     db.add(document)
     db.commit()
     db.refresh(document)
@@ -94,12 +91,3 @@ async def download_document(
         filename=document.file_name,
         media_type=document.mime_type
     )
-
-@router.get("/documents/{document_id}/file")
-def get_document_file(document_id: str, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc or not doc.file_data:
-        raise HTTPException(status_code=404, detail="File not found")
-    return {
-        "file_base64": base64.b64encode(doc.file_data).decode("utf-8")
-    }
