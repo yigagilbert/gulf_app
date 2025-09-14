@@ -537,6 +537,10 @@ class APIServiceClass {
   async getClientProfileByUserId(userId) {
     return this.request(`/admin/clients/by_user/${userId}`);
   }
+
+  static async getClientDocumentFile(documentId) {
+    return this.request(`/admin/documents/${documentId}/file`);
+  }
 }
 
 // Create singleton instance

@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Database URL - change this for production
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobplacement.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Fix for old-style Heroku URLs
 if DATABASE_URL.startswith("postgres://"):

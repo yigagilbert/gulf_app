@@ -66,9 +66,46 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
     }
   };
 
-  const handleViewDocument = (document) => {
-    setSelectedDocument(document);
-    setShowPDFViewer(true);
+  const handleViewDocument = async (document) => {
+    try {
+      const response = await APIService.getClientDocumentFile(document.id);
+      // response: { file_base64, mime_type, file_name }
+      setSelectedDocument({
+        ...document,
+        file_base64: response.file_base64,
+        mime_type: response.mime_type,
+        file_name: response.file_name,
+      });
+      setShowPDFViewer(true);
+    } catch (err) {
+      alert('Failed to preview document');
+    }
+  };
+
+  const previewDocument = async (documentId) => {
+    try {
+      const response = await APIService.getClientDocumentFile(documentId);
+      // response: { file_base64, mime_type, file_name }
+      const fileUrl = `data:${response.mime_type};base64,${response.file_base64}`;
+      // For images/PDFs, you can open in a new tab or show in a modal
+      window.open(fileUrl, '_blank');
+    } catch (err) {
+      alert('Failed to preview document');
+    }
+  };
+
+  const handleDownloadDocument = async (document) => {
+    try {
+      const response = await APIService.getClientDocumentFile(document.id);
+      const link = document.createElement('a');
+      link.href = `data:${response.mime_type};base64,${response.file_base64}`;
+      link.download = response.file_name || 'document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Failed to download document');
+    }
   };
 
   const formatFileSize = (bytes) => {
@@ -207,15 +244,13 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
                         <Eye className="h-4 w-4" />
                       </button>
                       
-                      <a
-                        href={document.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => handleDownloadDocument(document)}
                         className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50"
                         title="Download Document"
                       >
                         <Download className="h-4 w-4" />
-                      </a>
+                      </button>
 
                       {document.is_verified ? (
                         <button
@@ -281,7 +316,7 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
             </div>
             <div className="h-[calc(95vh-60px)]">
               <iframe
-                src={selectedDocument.file_url}
+                src={`data:${selectedDocument.mime_type};base64,${selectedDocument.file_base64}`}
                 className="w-full h-full"
                 title={selectedDocument.file_name}
               />

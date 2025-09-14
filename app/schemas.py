@@ -289,6 +289,7 @@ class ClientProfileResponse(BaseModel):
     
     # Profile Management
     profile_photo_url: Optional[str] = None
+    profile_photo_data: Optional[str] = None
     status: ClientStatusEnum
     verification_notes: Optional[str] = None
     verified_at: Optional[datetime] = None

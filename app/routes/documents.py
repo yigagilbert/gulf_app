@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -9,6 +8,8 @@ from app.models import User, Document, ClientProfile
 from app.schemas import DocumentUploadResponse
 from app.database import get_db
 from app.dependencies import get_current_user
+import base64
+
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -24,35 +25,33 @@ async def upload_document(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ]
     MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
     if not document_type or not isinstance(document_type, str):
         raise HTTPException(status_code=400, detail="Document type is required and must be a string")
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Invalid file type")
+
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="No file uploaded")
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large (max 5MB)")
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    upload_dir = "uploads"
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, unique_filename)
-    with open(file_path, "wb") as buffer:
-        buffer.write(contents)
+
     profile = db.query(ClientProfile).filter(ClientProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
+
     document = Document(
         id=str(uuid.uuid4()),
         client_id=profile.id,
         document_type=document_type,
         file_name=file.filename,
-        file_url=file_path,
-        file_size=os.path.getsize(file_path),
+        file_size=len(contents),
         mime_type=file.content_type,
-        is_verified=False
+        is_verified=False,
+        file_data=contents  # Save the file bytes directly
     )
+
     db.add(document)
     db.commit()
     db.refresh(document)
@@ -91,3 +90,14 @@ async def download_document(
         filename=document.file_name,
         media_type=document.mime_type
     )
+
+@router.get("/documents/{document_id}/file")
+def get_document_file(document_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc or not doc.file_data:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {
+        "file_base64": base64.b64encode(doc.file_data).decode("utf-8"),
+        "mime_type": doc.mime_type,
+        "file_name": doc.file_name
+    }

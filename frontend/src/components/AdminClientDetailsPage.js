@@ -282,9 +282,9 @@ const AdminClientDetailsPage = () => {
             {/* Profile Photo */}
             <div className="relative inline-block mb-6">
               <div className="relative">
-                {client.profile_photo_url ? (
+                {client.profile_photo_data ? (
                   <img
-                    src={client.profile_photo_url}
+                    src={`data:image/jpeg;base64,${client.profile_photo_data}`}
                     alt={clientName}
                     className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg object-cover"
                   />

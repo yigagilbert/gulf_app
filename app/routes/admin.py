@@ -17,6 +17,7 @@ from app.dependencies import get_admin_user
 from app.utils import get_password_hash, create_access_token
 import random
 import string
+import base64
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -225,7 +226,13 @@ def get_client_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
-    return client_profile
+    # Add base64 photo data if present
+    profile_dict = client_profile.__dict__.copy()
+    if client_profile.profile_photo_data:
+        profile_dict["profile_photo_data"] = base64.b64encode(client_profile.profile_photo_data).decode("utf-8")
+    else:
+        profile_dict["profile_photo_data"] = None
+    return profile_dict
 
 @router.put("/clients/{client_id}/verify", response_model=ClientProfileResponse)
 def verify_client(
@@ -266,16 +273,24 @@ def get_client_documents(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Get all documents for a specific client"""
-    client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client_profile:
+    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not client:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
-    
     documents = db.query(Document).filter(Document.client_id == client_id).all()
-    return documents
+    return [{
+        "id": doc.id,
+        "document_type": doc.document_type,
+        "file_name": doc.file_name,
+        "file_size": doc.file_size,
+        "mime_type": doc.mime_type,
+        "is_verified": doc.is_verified,
+        "verified_by": doc.verified_by,
+        "verified_at": doc.verified_at,
+        "uploaded_at": doc.uploaded_at
+    } for doc in documents]
 
 @router.get("/dashboard_stats")
 def get_dashboard_stats(
@@ -334,14 +349,14 @@ def _check_onboarding_complete(profile: ClientProfile) -> bool:
     return True
 
 @router.post("/clients/{client_id}/documents/upload")
-def admin_upload_client_document(
+async def admin_upload_client_document(
     client_id: str,
     file: UploadFile = File(...),
     document_type: str = "other",
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Admin uploads document for a specific client"""
+    """Admin uploads document for a specific client (store in DB only)"""
     # Verify client exists
     client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
     if not client_profile:
@@ -349,63 +364,45 @@ def admin_upload_client_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
-    
-    try:
-        # Validate file type
-        allowed_types = [
-            "application/pdf", "image/jpeg", "image/png", "image/jpg",
-            "application/msword", 
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ]
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF, DOC, DOCX, and image files are allowed"
-            )
-        
-        # Create uploads directory
-        upload_dir = Path("uploads/client_documents")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Generate unique filename
-        file_extension = file.filename.split(".")[-1]
-        filename = f"{client_id}_{document_type}_{uuid.uuid4().hex}.{file_extension}"
-        file_path = upload_dir / filename
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # Create document record
-        document = Document(
-            id=str(uuid.uuid4()),
-            client_id=client_id,
-            document_type=document_type,
-            file_name=file.filename,
-            file_url=f"/api/uploads/client_documents/{filename}",
-            file_size=os.path.getsize(file_path),
-            mime_type=file.content_type,
-            uploaded_at=datetime.utcnow()
-        )
-        
-        db.add(document)
-        db.commit()
-        db.refresh(document)
-        
-        return {
-            "id": document.id,
-            "document_type": document.document_type,
-            "file_name": document.file_name,
-            "file_url": document.file_url,
-            "message": "Document uploaded successfully"
-        }
-        
-    except Exception as e:
-        db.rollback()
+
+    allowed_types = [
+        "application/pdf", "image/jpeg", "image/png", "image/jpg",
+        "application/msword", 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ]
+    if file.content_type not in allowed_types:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload document: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF, DOC, DOCX, and image files are allowed"
         )
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+
+    document = Document(
+        id=str(uuid.uuid4()),
+        client_id=client_id,
+        document_type=document_type,
+        file_name=file.filename,
+        file_size=len(contents),
+        mime_type=file.content_type,
+        uploaded_at=datetime.utcnow(),
+        file_data=contents  # Save the file bytes directly
+    )
+
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    return {
+        "id": document.id,
+        "document_type": document.document_type,
+        "file_name": document.file_name,
+        "message": "Document uploaded successfully"
+    }
 
 @router.get("/clients/{client_id}/documents")
 def get_client_documents(
@@ -650,13 +647,13 @@ def delete_client(
         )
 
 @router.post("/clients/{client_id}/photo")
-def upload_client_profile_photo_admin(
+async def upload_client_profile_photo_admin(
     client_id: str,
     file: UploadFile = File(...),
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Upload profile photo for a client (admin only)"""
+    """Upload profile photo for a client (admin only, store in DB only)"""
     # Get the client
     client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
     if not client:
@@ -674,30 +671,9 @@ def upload_client_profile_photo_admin(
         )
     
     try:
-        # Create uploads directory if it doesn't exist
-        upload_dir = Path("uploads/profile_photos")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Delete old profile photo if exists
-        if client.profile_photo_url:
-            old_photo_path = f".{client.profile_photo_url}"
-            if os.path.exists(old_photo_path):
-                try:
-                    os.remove(old_photo_path)
-                except Exception as e:
-                    print(f"Warning: Could not delete old profile photo: {e}")
-        
-        # Generate unique filename
-        file_extension = file.filename.split(".")[-1]
-        filename = f"{client_id}_{uuid.uuid4().hex}.{file_extension}"
-        file_path = upload_dir / filename
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # Update client profile with photo URL (include /api prefix for proper routing)
-        client.profile_photo_url = f"/api/uploads/profile_photos/{filename}"
+        # Read file bytes
+        file_bytes = await file.read()
+        client.profile_photo_data = file_bytes
         client.updated_at = datetime.utcnow()
         client.last_modified_by = admin_user.id
         
@@ -705,7 +681,6 @@ def upload_client_profile_photo_admin(
         db.refresh(client)
         
         return {
-            "profile_photo_url": client.profile_photo_url, 
             "message": "Client profile photo uploaded successfully"
         }
         
@@ -765,3 +740,29 @@ def get_client_profile_by_user_id(
             detail="Client not found"
         )
     return client_profile
+
+@router.get("/clients/{client_id}/photo")
+def get_client_photo(client_id: str, db: Session = Depends(get_db)):
+    profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
+    if not profile or not profile.profile_photo_data:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return {
+        "photo_base64": base64.b64encode(profile.profile_photo_data).decode("utf-8")
+    }
+
+@router.get("/documents/{document_id}/file")
+def get_document_file(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Return the file data for a document as base64, along with its mime type and file name.
+    """
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc or not doc.file_data:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {
+        "file_base64": base64.b64encode(doc.file_data).decode("utf-8"),
+        "mime_type": doc.mime_type,
+        "file_name": doc.file_name
+    }
