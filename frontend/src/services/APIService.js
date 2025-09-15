@@ -538,7 +538,7 @@ class APIServiceClass {
     return this.request(`/admin/clients/by_user/${userId}`);
   }
 
-  static async getClientDocumentFile(documentId) {
+  async getClientDocumentFile(documentId) {
     return this.request(`/admin/documents/${documentId}/file`);
   }
 }

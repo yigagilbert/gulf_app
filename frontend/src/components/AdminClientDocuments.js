@@ -78,6 +78,7 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
       });
       setShowPDFViewer(true);
     } catch (err) {
+      console.error('Document preview/download error:', err);
       alert('Failed to preview document');
     }
   };
@@ -97,13 +98,14 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
   const handleDownloadDocument = async (document) => {
     try {
       const response = await APIService.getClientDocumentFile(document.id);
-      const link = document.createElement('a');
+      const link = window.document.createElement('a');
       link.href = `data:${response.mime_type};base64,${response.file_base64}`;
       link.download = response.file_name || 'document';
-      document.body.appendChild(link);
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      window.document.body.removeChild(link);
     } catch (err) {
+      console.error('Document preview/download error:', err);
       alert('Failed to download document');
     }
   };
