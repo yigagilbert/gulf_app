@@ -87,9 +87,9 @@ const LoginForm = ({ onToggle, isClient = false }) => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-20 w-20 mb-4 flex items-center justify-center">
+          <div className="mx-auto h-40 w-40 mb-4 flex items-center justify-center">
             <img 
-              src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png" 
+              src="/gulf.png" 
               alt="Gulf Consultants Logo" 
               className="h-full w-full object-contain"
             />
