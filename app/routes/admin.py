@@ -766,3 +766,24 @@ def get_document_file(
         "mime_type": doc.mime_type,
         "file_name": doc.file_name
     }
+
+@router.get("/applications")
+def get_all_applications(
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all job applications (admin only)"""
+    applications = db.query(JobApplication).all()
+    result = []
+    for app in applications:
+        job = db.query(JobOpportunity).filter(JobOpportunity.id == app.job_id).first()
+        result.append({
+            "id": app.id,
+            "job_id": app.job_id,
+            "job": {"title": job.title} if job else None,
+            "client_id": app.client_id,
+            "application_status": app.application_status,
+            "applied_date": app.applied_date,
+            "notes": app.notes,
+        })
+    return result
