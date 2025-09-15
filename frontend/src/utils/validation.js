@@ -118,7 +118,7 @@ export const sanitizeString = (str, maxLength = 255) => {
   return str.trim().slice(0, maxLength);
 };
 
-export const formatCurrency = (amount, currency = 'USD') => {
+export const formatCurrency = (amount, currency = 'UGx') => {
   if (!amount && amount !== 0) return 'N/A';
   
   return new Intl.NumberFormat('en-US', {

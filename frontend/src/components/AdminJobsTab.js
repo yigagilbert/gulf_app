@@ -9,7 +9,7 @@ const initialJobForm = {
   job_type: 'full_time',
   salary_range_min: '',
   salary_range_max: '',
-  currency: 'USD',
+  currency: 'UGx',
   requirements: '',
   benefits: '',
   application_deadline: ''
