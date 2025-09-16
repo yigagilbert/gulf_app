@@ -217,7 +217,7 @@ class JobOpportunity(Base):
     job_type = Column(Enum(JobType), default=JobType.full_time)
     salary_range_min = Column(DECIMAL(10, 2))
     salary_range_max = Column(DECIMAL(10, 2))
-    currency = Column(String, default="USD")
+    currency = Column(String, default="UGx")
     requirements = Column(Text)
     benefits = Column(Text)
     application_deadline = Column(Date)

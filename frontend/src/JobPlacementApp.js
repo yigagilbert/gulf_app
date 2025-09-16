@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { USER_ROLES } from './constants';  // Removed trailing comma
 import APIService from './services/APIService';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -84,68 +85,76 @@ const AppRoutes = () => {
     return <LoadingSpinner fullScreen />;
   }
 
-  // If no user after initialization, show auth page
-  if (!user) {
-    return <AuthPage />;
-  }
-
   return (
     <Routes>
-      {/* Admin Routes - Order matters! More specific routes first */}
-      {isAdmin && (
+      {/* Privacy Policy Route - accessible to everyone */}
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+
+      {/* If no user after initialization, show auth page */}
+      {!user ? (
         <>
+          {/* You can add other public routes here */}
+          <Route path="*" element={<AuthPage />} />
+        </>
+      ) : (
+        <>
+          {/* Admin Routes */}
+          {isAdmin && (
+            <>
+              <Route
+                path="/admin/clients/:clientId"
+                element={
+                  <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
+                    <AdminClientDetailsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </>
+          )}
+
+          {/* Client Routes */}
+          {isClient && (
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={[USER_ROLES.CLIENT]}>
+                  <OnboardingCheck />
+                </ProtectedRoute>
+              }
+            />
+          )}
+
+          {/* Default redirect based on user role */}
           <Route
-            path="/admin/clients/:clientId"
+            path="/"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
-                <AdminClientDetailsPage />
-              </ProtectedRoute>
+              <Navigate 
+                to={isAdmin ? "/admin" : "/dashboard"} 
+                replace 
+              />
             }
           />
-          <Route
-            path="/admin/*"
+          
+          {/* Catch all redirect */}
+          <Route 
+            path="*" 
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
+              <Navigate 
+                to={isAdmin ? "/admin" : "/dashboard"} 
+                replace 
+              />
+            } 
           />
         </>
       )}
-
-      {/* Client Routes */}
-      {isClient && (
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={[USER_ROLES.CLIENT]}>
-              <OnboardingCheck />
-            </ProtectedRoute>
-          }
-        />
-      )}
-
-      {/* Default redirect based on user role */}
-      <Route
-        path="/"
-        element={
-          <Navigate 
-            to={isAdmin ? "/admin" : "/dashboard"} 
-            replace 
-          />
-        }
-      />
-      
-      {/* Catch all redirect */}
-      <Route 
-        path="*" 
-        element={
-          <Navigate 
-            to={isAdmin ? "/admin" : "/dashboard"} 
-            replace 
-          />
-        } 
-      />
     </Routes>
   );
 };

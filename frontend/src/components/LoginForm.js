@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Phone } from 'lucide-react';
+import { Link } from "react-router-dom";
 import { useAuth } from '../AuthProvider';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -281,6 +282,9 @@ const LoginForm = ({ onToggle, isClient = false }) => {
             </p>
           </div>
         </form>
+        <p className="text-center text-xs text-gray-500 mt-6">
+          By using this app, you agree to our <Link to="/privacy-policy" className="text-blue-600 underline">Privacy Policy</Link>.
+        </p>
 
         {/* Demo Credentials */}
         {/* <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

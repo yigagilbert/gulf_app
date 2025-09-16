@@ -375,7 +375,7 @@ class JobOpportunityCreate(BaseModel):
     job_type: JobTypeEnum = JobTypeEnum.full_time
     salary_range_min: Optional[float] = None
     salary_range_max: Optional[float] = None
-    currency: str = "USD"
+    currency: str = "UGx"
     requirements: Optional[str] = None
     benefits: Optional[str] = None
     application_deadline: Optional[date] = None
