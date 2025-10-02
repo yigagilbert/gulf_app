@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, CheckCircle, XCircle, AlertCircle, Loader, Phone } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, CheckCircle, XCircle, AlertCircle, Loader, Phone } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
-import { validateEmail, validatePassword } from '../utils/validation';
+import { validatePassword } from '../utils/validation';
 import { VALIDATION_RULES } from '../constants';
 
 // Enhanced Registration Form for Clients
 const RegisterForm = ({ onToggle, isClient = true }) => {
   const [formData, setFormData] = useState({
     phone_number: '',
-    email: '',
     password: '',
     confirmPassword: '',
     first_name: '',
@@ -23,6 +22,16 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
   const [success, setSuccess] = useState(false);
 
   const { register } = useAuth();
+
+  // Auto-generate email from first and last name
+  const generatedEmail = useMemo(() => {
+    const firstName = formData.first_name.toLowerCase().trim();
+    const lastName = formData.last_name.toLowerCase().trim();
+    if (firstName && lastName) {
+      return `${firstName}${lastName}@gmail.com`;
+    }
+    return '';
+  }, [formData.first_name, formData.last_name]);
 
   // Password requirements - updated for 7+ characters
   const passwordRequirements = useMemo(() => {
@@ -47,11 +56,6 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
       case 'phone_number':
         if (!value.trim()) return 'Phone number is required';
         if (value.trim().length < 10) return 'Phone number must be at least 10 characters';
-        return '';
-
-      case 'email':
-        // Email is optional for clients
-        if (value && !validateEmail(value)) return 'Please enter a valid email address';
         return '';
       
       case 'password':
@@ -90,12 +94,7 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
     }
 
     // Real-time validation for specific fields
-    if (name === 'email' && value) {
-      setValidationStates(prev => ({
-        ...prev,
-        [name]: validateEmail(value) ? 'valid' : 'invalid'
-      }));
-    } else if (name === 'password' && value) {
+    if (name === 'password' && value) {
       setValidationStates(prev => ({
         ...prev,
         [name]: value.length > 6 ? 'valid' : 'invalid'
@@ -147,15 +146,15 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
 
     try {
       const registrationData = isClient ? {
-        // Client registration data
+        // Client registration data with auto-generated email
         phone_number: formData.phone_number,
-        email: formData.email || undefined, // Optional for clients
+        email: generatedEmail, // Auto-generated email
         password: formData.password,
         first_name: formData.first_name,
         last_name: formData.last_name
       } : {
         // Admin registration data (if needed)
-        email: formData.email,
+        email: generatedEmail,
         password: formData.password
       };
       
@@ -248,6 +247,19 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           </div>
         )}
 
+        {/* Auto-generated Email Preview */}
+        {isClient && generatedEmail && (
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <label className="block text-sm font-medium text-blue-700 mb-1">
+              Generated Email Address
+            </label>
+            <p className="text-sm text-blue-600 font-mono">{generatedEmail}</p>
+            <p className="text-xs text-blue-500 mt-1">
+              This email will be created automatically for your account
+            </p>
+          </div>
+        )}
+
         {/* Phone Number - Primary Field for Clients */}
         {isClient && (
           <div>
@@ -282,41 +294,6 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
             <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
           </div>
         )}
-
-        {/* Email - Required for Admin, Optional for Client */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Email {isClient ? <span className="text-gray-400">(Optional)</span> : <span className="text-red-500">*</span>}
-          </label>
-          <div className="relative">
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="you@example.com"
-              required={!isClient}
-              disabled={loading}
-            />
-            <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-            {validationStates.email && (
-              <div className="absolute right-3 top-2.5">
-                {validationStates.email === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-              </div>
-            )}
-          </div>
-          {errors.email && (
-            <div className="flex items-center text-sm text-red-600 mt-1">
-              <AlertCircle className="h-4 w-4 mr-1" />
-              {errors.email}
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-1">
-            {isClient ? 'For notifications and communication' : 'This will be your username for login'}
-          </p>
-        </div>
 
         {/* Password */}
         <div>
