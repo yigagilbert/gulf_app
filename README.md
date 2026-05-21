@@ -1,199 +1,175 @@
-# README.md
-# Job Placement System
+# Gulf Consultant
 
-A comprehensive job placement and client management system built with FastAPI and React.
+Gulf Consultant is a full-stack client intake and job placement platform built for managing candidate onboarding, document collection, job opportunities, and internal admin workflows.
 
-## Features
+The repository includes:
 
-### Client Features
-- **User Registration & Authentication**: Secure account creation and login
-- **Profile Management**: Complete profile with personal, contact, and official details
-- **Document Management**: Upload and manage documents (CV, passport, certificates, etc.)
-- **Job Search**: Browse and search available job opportunities
-- **Application Tracking**: Track job applications and their status
-- **Status Monitoring**: Real-time status updates (new, verified, in progress, etc.)
+- A `FastAPI` backend for authentication, profiles, jobs, document handling, and admin operations
+- A `React` frontend for client and admin dashboards
+- Local file storage support for uploaded documents, with optional Cloudflare R2 configuration
+- A simple local development path using SQLite, with PostgreSQL support through `DATABASE_URL`
 
-### Admin Features
-- **Client Management**: View, verify, and manage all registered clients
-- **Document Verification**: Review and verify uploaded documents
-- **Job Management**: Create and manage job opportunities
-- **Download Documents**: Download client documents for review
-- **Status Updates**: Update client statuses throughout the placement process
-- **Analytics Dashboard**: Monitor system performance and metrics
-
-## Technical Stack
+## Tech Stack
 
 ### Backend
-- **FastAPI**: Modern, fast web framework for building APIs
-- **PostgreSQL**: Robust relational database
-- **SQLAlchemy**: SQL toolkit and ORM
-- **Pydantic**: Data validation using Python type annotations
-- **JWT Authentication**: Secure token-based authentication
-- **File Upload**: Support for document uploads with validation
+
+- Python
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- JWT-based authentication
+- SQLite by default for local development
+- PostgreSQL when `DATABASE_URL` is configured
 
 ### Frontend
-- **React**: Modern JavaScript library for building user interfaces
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide React**: Beautiful, customizable icons
-- **Responsive Design**: Mobile-first approach, works on all devices
-- **Modern UI/UX**: Clean, professional interface
 
-## Installation & Setup
+- React
+- React Router
+- Tailwind CSS
+- Lucide React
 
-### Backend Setup
+## Project Structure
 
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd job-placement-system
+```text
+.
+├── app/                  # Backend application code
+│   ├── routes/           # API route modules
+│   ├── database.py       # SQLAlchemy engine and session setup
+│   ├── models.py         # Database models
+│   ├── schemas.py        # Request/response schemas
+│   └── storage.py        # Local/R2 storage helpers
+├── frontend/             # React application
+│   ├── public/
+│   └── src/
+├── uploads/              # Local uploaded files in development
+├── main.py               # FastAPI entry point
+├── requirements.txt      # Python dependencies
+└── .env.example          # Backend environment template
 ```
 
-2. **Install Python dependencies**
+## What the App Supports
+
+- User registration and login
+- Client profile management
+- Document upload and review workflows
+- Job listing and admin job management
+- Admin dashboards for client operations and tracking
+- Local file serving for uploaded assets in development
+
+## Local Development Setup
+
+### 1. Backend setup
+
+Create and activate a virtual environment, then install dependencies:
+
 ```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. **Set up PostgreSQL database**
-```bash
-# Using Docker (recommended)
-docker-compose up -d postgres
+Create your backend environment file from the example:
 
-# Or install PostgreSQL locally and create database
-createdb jobplacement_db
+```bash
+cp .env.example .env
 ```
 
-4. **Configure environment variables**
-Create a `.env` file:
+At minimum, review and update these values in `.env`:
+
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/jobplacement_db
-SECRET_KEY=your-super-secret-key-change-this-in-production
-```
-Save the script to a file (e.g., export_env.sh) in your project directory
-
-Make it executable:
-```bash
-chmod +x export_env.sh
-```
-
-Run it with source (important - this ensures the variables are set in your current shell):
-```bash
-source ./export_env.sh
+SECRET_KEY=replace-this-with-a-strong-secret
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_HOURS=24
+STORAGE_PROVIDER=local
+UPLOAD_DIR=uploads
+DEFAULT_ADMIN_EMAIL=admin@example.com
+DEFAULT_ADMIN_PASSWORD=change-me
 ```
 
-5. **Run the FastAPI server**
+Database behavior:
+
+- If `DATABASE_URL` is not set, the app uses a local SQLite database at `jobplacement.db`
+- If `DATABASE_URL` is set, the backend connects to that database instead
+- Tables are created automatically on startup
+
+Start the backend:
+
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend Setup
+### 2. Frontend setup
 
-1. **Install Node.js dependencies**
+Install frontend dependencies:
+
 ```bash
 cd frontend
 npm install
 ```
 
-2. **Install Tailwind CSS**
+Create a frontend environment file:
+
 ```bash
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
+cp .env.example .env
 ```
 
-3. **Start the React development server**
+Start the frontend:
+
 ```bash
 npm start
 ```
 
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+## Local URLs
 
-## Database Schema
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend API: [http://localhost:8000](http://localhost:8000)
+- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health check: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
-### Core Tables
-- **users**: User authentication and roles
-- **client_profiles**: Detailed client information
-- **documents**: File storage and verification tracking
-- **job_opportunities**: Available job positions
-- **job_applications**: Application tracking
+## Environment Variables
 
-### Key Features
-- **UUID Primary Keys**: Better security and scalability
-- **Enum Types**: Consistent status and type management
-- **Audit Trail**: Created/updated timestamps
-- **File Metadata**: Comprehensive document tracking
-- **Verification System**: Multi-step client verification process
+### Backend
 
-## API Endpoints
+Common backend settings:
 
-### Authentication
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | No | Optional database connection string. Falls back to SQLite when omitted. |
+| `SECRET_KEY` | Yes | JWT signing secret. |
+| `ALGORITHM` | Yes | JWT signing algorithm. |
+| `ACCESS_TOKEN_EXPIRE_HOURS` | Yes | Access token lifetime. |
+| `STORAGE_PROVIDER` | Recommended | Use `local` for development or your cloud-backed provider in deployment. |
+| `UPLOAD_DIR` | Recommended | Local upload directory when using local storage. |
+| `DEFAULT_ADMIN_EMAIL` | Optional | Creates a default admin on startup when paired with a password. |
+| `DEFAULT_ADMIN_PASSWORD` | Optional | Password for the startup-created admin user. |
 
-### Profile Management
-- `GET /profile/me` - Get current user profile
-- `PUT /profile/me` - Update profile information
+Optional Cloudflare R2 settings:
 
-### Document Management
-- `POST /documents/upload` - Upload documents
-- `GET /documents/me` - Get user documents
-- `GET /documents/download/{id}` - Download document
+| Variable | Purpose |
+| --- | --- |
+| `CLOUDFLARE_R2_BUCKET` | Target bucket name |
+| `CLOUDFLARE_R2_PREFIX` | Object key prefix |
+| `CLOUDFLARE_R2_ENDPOINT_URL` | R2 endpoint URL |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID` | Access key |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | Secret key |
+| `CLOUDFLARE_R2_PUBLIC_BASE_URL` | Public asset base URL |
 
-### Admin Endpoints
-- `GET /admin/clients` - List all clients
-- `PUT /admin/clients/{id}/verify` - Verify client
-- `GET /admin/clients/{id}/documents` - Get client documents
+### Frontend
 
-### Job Management
-- `GET /jobs` - List job opportunities
-- `POST /jobs` - Create new job (admin only)
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `REACT_APP_API_BASE_URL` | Yes | Base URL for the backend API, for example `http://localhost:8000/api`. |
 
-## Security Features
+## Deployment Notes
 
-- **JWT Authentication**: Secure token-based authentication
-- **Role-based Access**: Client/Admin role separation
-- **File Validation**: Document type and size validation
-- **Password Hashing**: Bcrypt password encryption
-- **CORS Configuration**: Secure cross-origin requests
-- **Input Validation**: Pydantic schema validation
+- Set a production `DATABASE_URL` if you do not want SQLite
+- Use a strong `SECRET_KEY`
+- Do not commit live `.env` files or uploaded documents
+- If you use cloud object storage, configure the R2 variables before deploy
+- Review allowed CORS origins in [main.py](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/main.py) for your production frontend domains
 
-## File Storage
+## Notes for Contributors
 
-- **Local Storage**: Files stored in `uploads/` directory
-- **Unique Filenames**: UUID-based file naming
-- **Metadata Tracking**: File size, type, and verification status
-- **Download Protection**: Authenticated file access
-- **File Type Validation**: Restricted file types for security
-
-## Deployment Considerations
-
-### Production Environment
-1. **Environment Variables**: Set secure production values
-2. **Database**: Use managed PostgreSQL service
-3. **File Storage**: Consider cloud storage (AWS S3, etc.)
-4. **SSL/HTTPS**: Enable secure connections
-5. **Process Management**: Use PM2 or similar for Node.js
-6. **Reverse Proxy**: Nginx for static files and load balancing
-
-### Scaling Options
-- **Database**: Read replicas, connection pooling
-- **File Storage**: CDN for document delivery
-- **Caching**: Redis for session management
-- **Load Balancing**: Multiple application instances
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions, please open an issue in the repository or contact the development team.
+- `.gitignore` is configured to exclude local secrets, virtual environments, uploads, frontend build output, and local databases
+- `.env.example` should stay committed as the source-of-truth template
+- If a sensitive file was committed before the ignore rules were added, it must be removed from Git tracking separately
