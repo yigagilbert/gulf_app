@@ -149,7 +149,7 @@ const AdminDashboard = () => {
         totalClients: clientsData?.length || 0,
         activeJobs: jobsData?.filter(job => job.is_active)?.length || 0,
         totalApplications: applicationsData?.length || 0,
-        totalPlacements: applicationsData?.filter(app => app.status === 'accepted')?.length || 0
+        totalPlacements: applicationsData?.filter(app => app.application_status === 'accepted')?.length || 0
       };
 
       setStats(dashboardStats);

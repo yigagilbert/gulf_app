@@ -4,7 +4,7 @@ import uuid
 from app.models import User, JobOpportunity, JobApplication, ClientProfile
 from app.schemas import JobOpportunityCreate, JobOpportunityResponse, JobApplicationResponse
 from app.database import get_db
-from app.dependencies import get_admin_user, get_current_user
+from app.dependencies import get_admin_user, get_client_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -58,7 +58,7 @@ def update_job(
 @router.post("/{job_id}/apply", response_model=dict)
 def apply_for_job(
     job_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     job = db.query(JobOpportunity).filter(JobOpportunity.id == job_id, JobOpportunity.is_active == True).first()
@@ -100,7 +100,7 @@ def delete_job(
 # Get job applications for current client
 @router.get("/applications", response_model=list[JobApplicationResponse])
 def get_my_applications(
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == user.id).first()

@@ -203,7 +203,7 @@ export const AuthProvider = ({ children }) => {
           // Verify token in background without affecting current session
           setTimeout(async () => {
             try {
-              await APIService.request('/profile/me', { method: 'GET' });
+              await APIService.getCurrentUser();
               console.log('Background token verification successful');
             } catch (apiError) {
               console.log('Background token verification failed:', apiError);
@@ -239,7 +239,7 @@ export const AuthProvider = ({ children }) => {
       // Send heartbeat every 10 minutes to keep session active
       heartbeatIntervalRef.current = setInterval(async () => {
         try {
-          await APIService.request('/profile/me', { method: 'GET' });
+          await APIService.getCurrentUser();
           updateActivity();
         } catch (error) {
           console.log('Heartbeat failed, user may need to re-login');
@@ -334,7 +334,7 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!user) return false;
       
-      const response = await APIService.request('/profile/me', { method: 'GET' });
+      const response = await APIService.getCurrentUser();
       if (response) {
         updateActivity();
         return true;

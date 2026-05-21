@@ -17,12 +17,28 @@ const AdminClientStatusUpdate = ({ clientId, clientName, currentStatus, isOpen, 
       iconColor: 'text-blue-600'
     },
     { 
+      value: 'under_review',
+      label: 'Under Review',
+      description: 'Onboarding is complete and awaiting admin decision',
+      color: 'bg-amber-100 text-amber-800 border-amber-200',
+      bgColor: 'bg-amber-50',
+      iconColor: 'text-amber-600'
+    },
+    { 
       value: 'verified', 
       label: 'Verified', 
       description: 'Documents verified and approved for travel',
       color: 'bg-green-100 text-green-800 border-green-200',
       bgColor: 'bg-green-50',
       iconColor: 'text-green-600'
+    },
+    {
+      value: 'rejected',
+      label: 'Rejected',
+      description: 'Application or onboarding details were rejected',
+      color: 'bg-red-100 text-red-800 border-red-200',
+      bgColor: 'bg-red-50',
+      iconColor: 'text-red-600'
     },
     { 
       value: 'traveled', 

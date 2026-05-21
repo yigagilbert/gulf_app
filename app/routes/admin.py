@@ -3,10 +3,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional, List
 import uuid
-import os
-import shutil
-from pathlib import Path
-from app.models import User, ClientProfile, Document, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage, EducationRecord, EmploymentRecord
+import base64
+from app.models import User, ClientProfile, Document, DocumentType, JobOpportunity, JobApplication, UserRole, ClientStatus, ChatMessage, EducationRecord, EmploymentRecord
 from app.schemas import (
     UserCreate, ClientCreate, ClientProfileCreate, ClientProfileUpdate, ClientProfileResponse,
     AdminClientListResponse, AdminVerificationUpdate, UserResponse, DocumentCreate,
@@ -15,11 +13,47 @@ from app.schemas import (
 from app.database import get_db
 from app.dependencies import get_admin_user
 from app.utils import get_password_hash, create_access_token
-import random
-import string
-import base64
+from app.storage import build_public_url, delete_file, read_bytes, save_bytes
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _get_profile_photo_base64(profile: ClientProfile) -> Optional[str]:
+    if profile.profile_photo_data:
+        return base64.b64encode(profile.profile_photo_data).decode("utf-8")
+    if profile.profile_photo_url and not build_public_url(profile.profile_photo_url):
+        try:
+            file_bytes, _ = read_bytes(profile.profile_photo_url)
+            return base64.b64encode(file_bytes).decode("utf-8")
+        except Exception:
+            return None
+    return None
+
+
+def _serialize_document(doc: Document) -> dict:
+    return {
+        "id": doc.id,
+        "document_type": doc.document_type.value if hasattr(doc.document_type, "value") else doc.document_type,
+        "file_name": doc.file_name,
+        "file_url": build_public_url(doc.file_url),
+        "file_size": doc.file_size,
+        "mime_type": doc.mime_type,
+        "is_verified": doc.is_verified,
+        "verified_by": doc.verified_by,
+        "verified_at": doc.verified_at,
+        "uploaded_at": doc.uploaded_at
+    }
+
+
+def _serialize_client_profile(client_profile: ClientProfile, user: Optional[User]) -> dict:
+    profile_dict = {
+        column.name: getattr(client_profile, column.name)
+        for column in ClientProfile.__table__.columns
+    }
+    profile_dict["user_email"] = user.email if user else None
+    profile_dict["profile_photo_url"] = build_public_url(client_profile.profile_photo_url)
+    profile_dict["profile_photo_data"] = _get_profile_photo_base64(client_profile)
+    return profile_dict
 
 def generate_serial_number(db: Session) -> str:
     """Generate unique serial number for client registration"""
@@ -93,6 +127,8 @@ def get_all_clients(
             user_email=user.email if user else "Unknown",
             first_name=client.first_name,
             last_name=client.last_name,
+            profile_photo_url=build_public_url(client.profile_photo_url),
+            profile_photo_data=_get_profile_photo_base64(client),
             status=client.status,
             created_at=client.created_at,
             verification_notes=client.verification_notes
@@ -205,7 +241,8 @@ def admin_complete_onboarding(
     try:
         db.commit()
         db.refresh(client_profile)
-        return client_profile
+        user = db.query(User).filter(User.id == client_profile.user_id).first()
+        return _serialize_client_profile(client_profile, user)
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -226,12 +263,8 @@ def get_client_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
-    # Add base64 photo data if present
-    profile_dict = client_profile.__dict__.copy()
-    if client_profile.profile_photo_data:
-        profile_dict["profile_photo_data"] = base64.b64encode(client_profile.profile_photo_data).decode("utf-8")
-    else:
-        profile_dict["profile_photo_data"] = None
+    user = db.query(User).filter(User.id == client_profile.user_id).first()
+    profile_dict = _serialize_client_profile(client_profile, user)
     return profile_dict
 
 @router.put("/clients/{client_id}/verify", response_model=ClientProfileResponse)
@@ -259,7 +292,8 @@ def verify_client(
     try:
         db.commit()
         db.refresh(client_profile)
-        return client_profile
+        user = db.query(User).filter(User.id == client_profile.user_id).first()
+        return _serialize_client_profile(client_profile, user)
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -267,40 +301,18 @@ def verify_client(
             detail=f"Failed to verify client: {str(e)}"
         )
 
-@router.get("/clients/{client_id}/documents")
-def get_client_documents(
-    client_id: str,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found"
-        )
-    documents = db.query(Document).filter(Document.client_id == client_id).all()
-    return [{
-        "id": doc.id,
-        "document_type": doc.document_type,
-        "file_name": doc.file_name,
-        "file_size": doc.file_size,
-        "mime_type": doc.mime_type,
-        "is_verified": doc.is_verified,
-        "verified_by": doc.verified_by,
-        "verified_at": doc.verified_at,
-        "uploaded_at": doc.uploaded_at
-    } for doc in documents]
-
 @router.get("/dashboard_stats")
 def get_dashboard_stats(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
     """Get dashboard statistics for admin"""
-    total_clients = db.query(ClientProfile).count()
-    new_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.new).count()
-    verified_clients = db.query(ClientProfile).filter(ClientProfile.status == ClientStatus.verified).count()
+    client_query = db.query(ClientProfile).join(User, ClientProfile.user_id == User.id).filter(
+        User.role == UserRole.client
+    )
+    total_clients = client_query.count()
+    new_clients = client_query.filter(ClientProfile.status == ClientStatus.new).count()
+    verified_clients = client_query.filter(ClientProfile.status == ClientStatus.verified).count()
     active_jobs = db.query(JobOpportunity).filter(JobOpportunity.is_active == True).count()
     total_applications = db.query(JobApplication).count()
     
@@ -356,7 +368,7 @@ async def admin_upload_client_document(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Admin uploads document for a specific client (store in DB only)"""
+    """Admin uploads document for a specific client"""
     # Verify client exists
     client_profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
     if not client_profile:
@@ -382,15 +394,23 @@ async def admin_upload_client_document(
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
 
+    try:
+        document_type_enum = DocumentType(document_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid document type") from exc
+
+    stored_file = save_bytes("client_documents", file.filename, contents, file.content_type)
+
     document = Document(
         id=str(uuid.uuid4()),
         client_id=client_id,
-        document_type=document_type,
+        document_type=document_type_enum,
         file_name=file.filename,
+        file_url=stored_file.key,
         file_size=len(contents),
         mime_type=file.content_type,
         uploaded_at=datetime.utcnow(),
-        file_data=contents  # Save the file bytes directly
+        file_data=None
     )
 
     db.add(document)
@@ -399,7 +419,7 @@ async def admin_upload_client_document(
 
     return {
         "id": document.id,
-        "document_type": document.document_type,
+        "document_type": document.document_type.value,
         "file_name": document.file_name,
         "message": "Document uploaded successfully"
     }
@@ -422,18 +442,7 @@ def get_client_documents(
     # Get all documents for this client
     documents = db.query(Document).filter(Document.client_id == client_id).all()
     
-    return [{
-        "id": doc.id,
-        "document_type": doc.document_type,
-        "file_name": doc.file_name,
-        "file_url": doc.file_url,
-        "file_size": doc.file_size,
-        "mime_type": doc.mime_type,
-        "is_verified": doc.is_verified,
-        "verified_by": doc.verified_by,
-        "verified_at": doc.verified_at,
-        "uploaded_at": doc.uploaded_at
-    } for doc in documents]
+    return [_serialize_document(doc) for doc in documents]
 
 @router.delete("/clients/{client_id}/documents/{document_id}")
 def delete_client_document(
@@ -463,13 +472,7 @@ def delete_client_document(
             detail="Document not found"
         )
     
-    # Delete the physical file
-    try:
-        file_path = f"./uploads/client_documents/{document.file_name}"
-        if os.path.exists(file_path):
-            os.remove(file_path)
-    except Exception as e:
-        print(f"Warning: Could not delete physical file: {e}")
+    delete_file(document.file_url)
     
     # Delete from database
     db.delete(document)
@@ -531,7 +534,7 @@ def update_client_status(
         )
     
     # Validate status
-    valid_statuses = ["new", "verified", "traveled", "returned"]
+    valid_statuses = ["new", "under_review", "verified", "rejected", "traveled", "returned"]
     if new_status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -540,7 +543,7 @@ def update_client_status(
     
     # Update status
     old_status = client.status
-    client.status = new_status
+    client.status = ClientStatus(new_status)
     client.updated_at = datetime.utcnow()
     client.last_modified_by = admin_user.id
     
@@ -549,7 +552,7 @@ def update_client_status(
     return {
         "message": f"Client status updated from '{old_status}' to '{new_status}'",
         "client_id": client.id,
-        "old_status": old_status,
+        "old_status": old_status.value if hasattr(old_status, "value") else old_status,
         "new_status": new_status,
         "updated_by": admin_user.email
     }
@@ -585,26 +588,10 @@ def delete_client(
         # Delete associated documents first
         documents = db.query(Document).filter(Document.client_id == client_id).all()
         for doc in documents:
-            # Delete physical files
-            try:
-                if doc.file_url and doc.file_url.startswith('/uploads/'):
-                    file_path = f".{doc.file_url}"
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-            except Exception as e:
-                print(f"Warning: Could not delete file {doc.file_url}: {e}")
-            
-            # Delete document record
+            delete_file(doc.file_url)
             db.delete(doc)
         
-        # Delete profile photo if exists
-        if client.profile_photo_url:
-            try:
-                photo_path = f".{client.profile_photo_url}"
-                if os.path.exists(photo_path):
-                    os.remove(photo_path)
-            except Exception as e:
-                print(f"Warning: Could not delete profile photo: {e}")
+        delete_file(client.profile_photo_url)
         
         # Delete any chat messages
         chat_messages = db.query(ChatMessage).filter(
@@ -653,7 +640,7 @@ async def upload_client_profile_photo_admin(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Upload profile photo for a client (admin only, store in DB only)"""
+    """Upload profile photo for a client (admin only)"""
     # Get the client
     client = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
     if not client:
@@ -671,9 +658,14 @@ async def upload_client_profile_photo_admin(
         )
     
     try:
-        # Read file bytes
         file_bytes = await file.read()
-        client.profile_photo_data = file_bytes
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="No file uploaded")
+
+        delete_file(client.profile_photo_url)
+        stored_file = save_bytes("profile_photos", file.filename, file_bytes, file.content_type)
+        client.profile_photo_url = stored_file.key
+        client.profile_photo_data = None
         client.updated_at = datetime.utcnow()
         client.last_modified_by = admin_user.id
         
@@ -681,7 +673,9 @@ async def upload_client_profile_photo_admin(
         db.refresh(client)
         
         return {
-            "message": "Client profile photo uploaded successfully"
+            "message": "Client profile photo uploaded successfully",
+            "profile_photo_url": build_public_url(client.profile_photo_url),
+            "photo_base64": base64.b64encode(file_bytes).decode("utf-8") if not build_public_url(client.profile_photo_url) else None
         }
         
     except Exception as e:
@@ -729,7 +723,7 @@ def _get_onboarding_completion(profile: ClientProfile) -> dict:
 @router.get("/clients/by_user/{user_id}", response_model=ClientProfileResponse)
 def get_client_profile_by_user_id(
     user_id: str,
-    # admin_user: User = Depends(get_admin_user),
+    admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
     """Get client profile by user ID (for chat sidebar)"""
@@ -739,30 +733,47 @@ def get_client_profile_by_user_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
-    return client_profile
+    user = db.query(User).filter(User.id == client_profile.user_id).first()
+    return _serialize_client_profile(client_profile, user)
 
 @router.get("/clients/{client_id}/photo")
-def get_client_photo(client_id: str, db: Session = Depends(get_db)):
+def get_client_photo(
+    client_id: str,
+    admin_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
     profile = db.query(ClientProfile).filter(ClientProfile.id == client_id).first()
-    if not profile or not profile.profile_photo_data:
+    if not profile:
         raise HTTPException(status_code=404, detail="Photo not found")
+    if profile.profile_photo_data:
+        return {
+            "photo_base64": base64.b64encode(profile.profile_photo_data).decode("utf-8")
+        }
+    if not profile.profile_photo_url:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    file_bytes, _ = read_bytes(profile.profile_photo_url)
     return {
-        "photo_base64": base64.b64encode(profile.profile_photo_data).decode("utf-8")
+        "photo_base64": base64.b64encode(file_bytes).decode("utf-8")
     }
 
 @router.get("/documents/{document_id}/file")
 def get_document_file(
     document_id: str,
+    admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
     """
     Return the file data for a document as base64, along with its mime type and file name.
     """
     doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc or not doc.file_data:
+    if not doc:
         raise HTTPException(status_code=404, detail="File not found")
+    if doc.file_data:
+        file_bytes = doc.file_data
+    else:
+        file_bytes, _ = read_bytes(doc.file_url)
     return {
-        "file_base64": base64.b64encode(doc.file_data).decode("utf-8"),
+        "file_base64": base64.b64encode(file_bytes).decode("utf-8"),
         "mime_type": doc.mime_type,
         "file_name": doc.file_name
     }

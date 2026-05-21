@@ -12,7 +12,9 @@ class UserRoleEnum(str, Enum):
 
 class ClientStatusEnum(str, Enum):
     new = "new"
+    under_review = "under_review"
     verified = "verified"
+    rejected = "rejected"
     traveled = "traveled"
     returned = "returned"
 
@@ -218,6 +220,7 @@ class ClientProfileUpdate(BaseModel):
 class ClientProfileResponse(BaseModel):
     id: str
     user_id: str
+    user_email: Optional[str] = None
     
     # Form Registration Details (System Generated)
     registration_date: Optional[datetime] = None
@@ -424,6 +427,8 @@ class AdminClientListResponse(BaseModel):
     user_email: str
     first_name: Optional[str]
     last_name: Optional[str]
+    profile_photo_url: Optional[str] = None
+    profile_photo_data: Optional[str] = None
     status: ClientStatusEnum
     created_at: datetime
     verification_notes: Optional[str]

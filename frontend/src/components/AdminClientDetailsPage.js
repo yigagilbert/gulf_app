@@ -169,7 +169,11 @@ const AdminClientDetailsPage = () => {
       const response = await APIService.uploadClientProfilePhoto(clientId, formData);
       
       // Update both client and form state
-      const updatedClient = { ...client, profile_photo_url: response.profile_photo_url };
+      const updatedClient = {
+        ...client,
+        profile_photo_url: response.profile_photo_url || null,
+        profile_photo_data: response.photo_base64 || null
+      };
       setClient(updatedClient);
       setForm(updatedClient);
     } catch (err) {
@@ -206,7 +210,9 @@ const AdminClientDetailsPage = () => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'new': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'under_review': return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'verified': return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
       case 'traveled': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'returned': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -285,6 +291,12 @@ const AdminClientDetailsPage = () => {
                 {client.profile_photo_data ? (
                   <img
                     src={`data:image/jpeg;base64,${client.profile_photo_data}`}
+                    alt={clientName}
+                    className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg object-cover"
+                  />
+                ) : client.profile_photo_url ? (
+                  <img
+                    src={APIService.getAssetUrl(client.profile_photo_url)}
                     alt={clientName}
                     className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg object-cover"
                   />

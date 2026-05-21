@@ -16,10 +16,11 @@ from app.routes.admin import router as admin_router
 from app.routes.jobs import router as jobs_router
 from app.routes.chat import router as chat_router
 # Default admin creation (utility function)
-from app.models import User
+from app.models import User, UserRole
 from app.utils import get_password_hash
 from app.database import get_db
 from sqlalchemy.exc import IntegrityError
+from app.storage import get_local_upload_dir, is_local_storage
 
 load_dotenv()
 
@@ -68,20 +69,21 @@ app.include_router(chat_router, prefix="/api")
 def health_check():
     return {"status": "healthy", "message": "Gulf Consultants API is running"}
 
-# Create uploads directory if it doesn't exist
-uploads_dir = Path("uploads")
-uploads_dir.mkdir(exist_ok=True)
-(uploads_dir / "profile_photos").mkdir(exist_ok=True)
-(uploads_dir / "client_documents").mkdir(exist_ok=True)
-
-# Serve the uploads directory (adjust the path as needed)
-uploads_path = os.path.join(os.path.dirname(__file__), "uploads")
-app.mount("/api/uploads", StaticFiles(directory=uploads_path), name="uploads")
+uploads_dir = get_local_upload_dir()
+if is_local_storage():
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "profile_photos").mkdir(exist_ok=True)
+    (uploads_dir / "client_documents").mkdir(exist_ok=True)
+    app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
 
 def create_default_admin():
+    if not DEFAULT_ADMIN_EMAIL or not DEFAULT_ADMIN_PASSWORD:
+        print("Default admin credentials not configured; skipping default admin creation")
+        return
+
     db = next(get_db())
     admin = db.query(User).filter(User.email == DEFAULT_ADMIN_EMAIL).first()
     if not admin:
@@ -90,7 +92,7 @@ def create_default_admin():
             id=str(uuid.uuid4()),
             email=DEFAULT_ADMIN_EMAIL,
             password_hash=hashed_password,
-            role="super_admin",
+            role=UserRole.super_admin,
             is_active=True,
             email_verified=True
         )

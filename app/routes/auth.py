@@ -6,6 +6,7 @@ from datetime import datetime
 from app.models import User, ClientProfile, UserRole, ClientStatus
 from app.schemas import UserCreate, ClientCreate, UserLogin, ClientLogin, UserResponse
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.utils import get_password_hash, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -157,3 +158,8 @@ def login_admin(user_credentials: UserLogin, db: Session = Depends(get_db)):
 def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     """Legacy login endpoint - redirects to admin login"""
     return login_admin(user_credentials, db)
+
+
+@router.get("/me", response_model=UserResponse)
+def get_authenticated_user(current_user: User = Depends(get_current_user)):
+    return current_user

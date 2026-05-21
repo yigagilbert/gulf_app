@@ -1,108 +1,74 @@
-# Node.js (frontend)
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Frontend / Node
 frontend/node_modules/
-frontend/.env
 frontend/build/
 frontend/dist/
+frontend/coverage/
+frontend/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Python (backend)
-venv/
-__pycache__/
+# Environment files and local overrides
 .env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+*.local
+
+# Local databases and uploaded files
+jobplacement.db
+*.sqlite
+*.sqlite3
+*.db-journal
 uploads/
 
-# VSCode
-.vscode/
-
-# OS/Editor
-.DS_Store
-*.swp
-
-# Logs
-*.log
-
-# Misc
-*.pyc
-*.pyo
-*.pyd
-
-# Coverage
+# Test and coverage outputs
 coverage/
-
-# Test output
 junit.xml
 
-# Ignore package-lock.json if using yarn
-frontend/package-lock.json
-
+# Tooling and app-specific local files
+.emergent/
 export_env.sh
-
-
 dummmy.txt
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+
+# Logs and runtime files
+*.log
+*.pid

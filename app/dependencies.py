@@ -161,6 +161,23 @@ def get_current_active_user(
     """
     return current_user
 
+
+def get_user_role_value(user: User) -> str:
+    user_role = str(user.role).lower()
+    if hasattr(user.role, "value"):
+        user_role = user.role.value
+    return user_role
+
+
+def get_client_user(current_user: User = Depends(get_current_user)) -> User:
+    user_role = get_user_role_value(current_user)
+    if user_role != "client":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client access required"
+        )
+    return current_user
+
 def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Dependency to ensure current user has admin privileges
@@ -185,9 +202,7 @@ def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
             )
         
         # Handle both enum and string roles
-        user_role = str(current_user.role).lower()
-        if hasattr(current_user.role, 'value'):
-            user_role = current_user.role.value
+        user_role = get_user_role_value(current_user)
         
         if user_role not in admin_roles:
             logger.warning(
@@ -226,9 +241,7 @@ def get_super_admin_user(current_user: User = Depends(get_current_user)) -> User
     """
     try:
         # Handle both enum and string roles
-        user_role = str(current_user.role).lower()
-        if hasattr(current_user.role, 'value'):
-            user_role = current_user.role.value
+        user_role = get_user_role_value(current_user)
         
         if user_role != "super_admin":
             logger.warning(

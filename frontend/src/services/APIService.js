@@ -139,6 +139,23 @@ class APIServiceClass {
     return this.authToken;
   }
 
+  getAssetUrl(url) {
+    if (!url) {
+      return null;
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url;
+    }
+
+    if (url.startsWith('/')) {
+      const apiOrigin = this.baseURL.replace(/\/api$/, '');
+      return `${apiOrigin}${url}`;
+    }
+
+    return url;
+  }
+
   /**
    * Create request headers with authentication
    */
@@ -339,13 +356,19 @@ class APIServiceClass {
   }
 
   async uploadProfilePhoto(file) {
-    const formData = new FormData();
-    formData.append('file', file);
+    const formData = file instanceof FormData ? file : new FormData();
+    if (!(file instanceof FormData)) {
+      formData.append('file', file);
+    }
     
     return this.request('/profile/me/photo', {
       method: 'POST',
       body: formData
     });
+  }
+
+  async getCurrentUser() {
+    return this.request('/auth/me');
   }
 
   async getOnboardingStatus() {
@@ -374,7 +397,8 @@ class APIServiceClass {
    * Job endpoints
    */
   async getJobs(page = 1, limit = 20) {
-    return this.request(`/jobs?page=${page}&limit=${limit}`);
+    const skip = Math.max(0, (page - 1) * limit);
+    return this.request(`/jobs?skip=${skip}&limit=${limit}`);
   }
 
   async getJob(jobId) {
@@ -389,7 +413,7 @@ class APIServiceClass {
   }
 
   async getMyApplications() {
-    return this.request('/applications/me');
+    return this.request('/jobs/applications');
   }
 
   /**
@@ -540,6 +564,41 @@ class APIServiceClass {
 
   async getClientDocumentFile(documentId) {
     return this.request(`/admin/documents/${documentId}/file`);
+  }
+
+  async downloadDocument(documentId, fileName = 'document') {
+    const url = `${this.baseURL}/documents/download/${documentId}`;
+    const headers = {};
+
+    if (this.authToken) {
+      headers.Authorization = `Bearer ${this.authToken}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers
+    });
+
+    if (!response.ok) {
+      let message = 'Failed to download document';
+      try {
+        const errorData = await response.json();
+        message = errorData.detail || message;
+      } catch (error) {
+        // Ignore JSON parsing failures for binary responses.
+      }
+      throw new APIError(message, response.status, null, 'download');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = window.document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName;
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   }
 }
 

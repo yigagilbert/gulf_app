@@ -227,7 +227,7 @@ const ClientDashboard = () => {
               <div className="flex items-center space-x-3">
                 {profile?.profile_photo_url ? (
                   <img
-                    src={profile.profile_photo_url}
+                    src={APIService.getAssetUrl(profile.profile_photo_url)}
                     alt="Profile"
                     className="h-10 w-10 rounded-full border-2 border-blue-600 object-cover"
                   />

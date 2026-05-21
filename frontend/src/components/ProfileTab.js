@@ -53,9 +53,7 @@ const ProfileTab = ({ profile, onUpdate }) => {
       if (profile.profile_photo_data) {
         setPhotoBase64(`data:image/jpeg;base64,${profile.profile_photo_data}`);
       } else if (profile.profile_photo_url) {
-        setPhotoBase64(profile.profile_photo_url.startsWith('data:')
-          ? profile.profile_photo_url
-          : null);
+        setPhotoBase64(profile.profile_photo_url);
       } else {
         setPhotoBase64(null);
       }
@@ -74,15 +72,19 @@ const ProfileTab = ({ profile, onUpdate }) => {
     setPhotoUploading(true);
     setError(null);
     try {
-      // Send file to backend (as FormData)
-      const formDataObj = new FormData();
-      formDataObj.append('file', file);
-      // You may need to adjust the endpoint depending on your API
-      const response = await APIService.uploadProfilePhoto(formDataObj);
-      // Assume response contains { photo_base64: ... }
-      if (response.photo_base64) {
-        setPhotoBase64(`data:image/jpeg;base64,${response.photo_base64}`);
-        if (onUpdate) onUpdate({ ...profile, profile_photo_data: response.photo_base64 });
+      const response = await APIService.uploadProfilePhoto(file);
+      if (response.profile_photo_url || response.photo_url || response.photo_base64) {
+        const uploadedPhoto = response.photo_base64
+          ? `data:image/jpeg;base64,${response.photo_base64}`
+          : (response.profile_photo_url || response.photo_url);
+        setPhotoBase64(uploadedPhoto);
+        if (onUpdate) {
+          onUpdate({
+            ...profile,
+            profile_photo_url: response.profile_photo_url || response.photo_url || null,
+            profile_photo_data: response.photo_base64 || null
+          });
+        }
       }
     } catch (err) {
       setError('Failed to upload photo');
@@ -119,7 +121,7 @@ const ProfileTab = ({ profile, onUpdate }) => {
       <div className="flex items-center mb-6">
         <div className="relative">
           <img
-            src={photoBase64 || '/gulf.png'}
+            src={APIService.getAssetUrl(photoBase64) || '/gulf.png'}
             alt="Profile"
             className="w-24 h-24 rounded-full border-2 border-gray-300 object-cover"
           />

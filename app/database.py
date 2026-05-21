@@ -2,10 +2,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
+
 # Database URL - change this for production
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./jobplacement.db")
 
 # Fix for old-style Heroku URLs
 if DATABASE_URL.startswith("postgres://"):

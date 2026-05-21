@@ -2,24 +2,41 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-from typing import Optional
+import base64
 import logging
 import uuid
-import os
-import shutil
-from pathlib import Path
 
 from app.models import User, ClientProfile, ClientStatus
 from app.schemas import ClientProfileUpdate, ClientProfileResponse, ClientProfileCreate
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_client_user
+from app.storage import build_public_url, delete_file, read_bytes, save_bytes
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["profile"])
 
+
+def _serialize_profile(profile: ClientProfile, user: User) -> dict:
+    profile_dict = {
+        column.name: getattr(profile, column.name)
+        for column in ClientProfile.__table__.columns
+    }
+    profile_dict["user_email"] = user.email
+    profile_dict["profile_photo_url"] = build_public_url(profile.profile_photo_url)
+    profile_dict["profile_photo_data"] = None
+    if profile.profile_photo_data and not profile.profile_photo_url:
+        profile_dict["profile_photo_data"] = base64.b64encode(profile.profile_photo_data).decode("utf-8")
+    elif profile.profile_photo_url and not profile_dict["profile_photo_url"]:
+        try:
+            file_bytes, _ = read_bytes(profile.profile_photo_url)
+            profile_dict["profile_photo_data"] = base64.b64encode(file_bytes).decode("utf-8")
+        except Exception:
+            profile_dict["profile_photo_data"] = None
+    return profile_dict
+
 @router.get("/me", response_model=ClientProfileResponse)
 def get_my_profile(
-    current_user: User = Depends(get_current_user), 
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Get current user's profile with proper error handling"""
@@ -44,7 +61,7 @@ def get_my_profile(
             logger.info(f"Created new profile for user: {current_user.id}")
         
         logger.info(f"Successfully fetched profile for user: {current_user.id}")
-        return profile
+        return _serialize_profile(profile, current_user)
         
     except SQLAlchemyError as e:
         logger.error(f"Database error fetching profile for user {current_user.id}: {e}")
@@ -63,7 +80,7 @@ def get_my_profile(
 @router.put("/me", response_model=ClientProfileResponse)
 def update_my_profile(
     profile_data: ClientProfileUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Update current user's profile with onboarding support"""
@@ -103,7 +120,7 @@ def update_my_profile(
         db.refresh(profile)
         
         logger.info(f"Successfully updated profile for user: {current_user.id}")
-        return profile
+        return _serialize_profile(profile, current_user)
         
     except SQLAlchemyError as e:
         logger.error(f"Database error updating profile for user {current_user.id}: {e}")
@@ -123,7 +140,7 @@ def update_my_profile(
 @router.post("/me/onboard", response_model=ClientProfileResponse)
 def complete_onboarding(
     profile_data: ClientProfileCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Complete initial onboarding process"""
@@ -159,7 +176,7 @@ def complete_onboarding(
         db.refresh(profile)
         
         logger.info(f"Onboarding completed for user: {current_user.id}")
-        return profile
+        return _serialize_profile(profile, current_user)
         
     except Exception as e:
         logger.error(f"Error completing onboarding for user {current_user.id}: {e}")
@@ -171,7 +188,7 @@ def complete_onboarding(
 
 @router.get("/me/onboarding-status")
 def get_onboarding_status(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Get onboarding completion status for current user"""
@@ -209,7 +226,7 @@ def get_onboarding_status(
 @router.put("/me/basic", response_model=ClientProfileResponse)
 def update_basic_info(
     profile_data: ClientProfileUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Update basic profile information (used during onboarding steps)"""
@@ -239,7 +256,7 @@ def update_basic_info(
         db.commit()
         db.refresh(profile)
         
-        return profile
+        return _serialize_profile(profile, current_user)
         
     except Exception as e:
         logger.error(f"Error updating basic info for user {current_user.id}: {e}")
@@ -269,7 +286,7 @@ def _get_required_fields() -> list:
 @router.post("/me/photo")
 def upload_profile_photo(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_client_user),
     db: Session = Depends(get_db)
 ):
     """Upload profile photo for current user"""
@@ -281,20 +298,14 @@ def upload_profile_photo(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only JPEG and PNG images are allowed"
             )
-        
-        # Create uploads directory if it doesn't exist
-        upload_dir = Path("uploads/profile_photos")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Generate unique filename
-        file_extension = file.filename.split(".")[-1]
-        filename = f"{current_user.id}_{uuid.uuid4().hex}.{file_extension}"
-        file_path = upload_dir / filename
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
+
+        file_bytes = file.file.read()
+        if not file_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No file uploaded"
+            )
+
         # Update profile with photo URL
         profile = db.query(ClientProfile).filter(ClientProfile.user_id == current_user.id).first()
         if not profile:
@@ -304,19 +315,25 @@ def upload_profile_photo(
                 status=ClientStatus.new
             )
             db.add(profile)
-        
-        profile.profile_photo_url = f"/uploads/profile_photos/{filename}"
+
+        if profile.profile_photo_url:
+            delete_file(profile.profile_photo_url)
+
+        stored_file = save_bytes("profile_photos", file.filename, file_bytes, file.content_type)
+        profile.profile_photo_url = stored_file.key
         profile.updated_at = datetime.utcnow()
         profile.last_modified_by = current_user.id
-        
-        # After saving file to disk (or instead of it):
-        file_bytes = file.file.read()
-        profile.profile_photo_data = file_bytes
+        profile.profile_photo_data = None
         
         db.commit()
         db.refresh(profile)
         
-        return {"photo_url": profile.profile_photo_url, "message": "Profile photo uploaded successfully"}
+        return {
+            "photo_url": build_public_url(profile.profile_photo_url),
+            "profile_photo_url": build_public_url(profile.profile_photo_url),
+            "photo_base64": base64.b64encode(file_bytes).decode("utf-8") if not build_public_url(profile.profile_photo_url) else None,
+            "message": "Profile photo uploaded successfully"
+        }
         
     except Exception as e:
         logger.error(f"Error uploading profile photo for user {current_user.id}: {e}")

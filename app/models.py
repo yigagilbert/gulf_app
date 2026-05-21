@@ -12,7 +12,9 @@ class UserRole(enum.Enum):
 
 class ClientStatus(enum.Enum):
     new = "new"
+    under_review = "under_review"
     verified = "verified"
+    rejected = "rejected"
     traveled = "traveled"
     returned = "returned"
 

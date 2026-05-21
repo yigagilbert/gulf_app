@@ -136,9 +136,9 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center p-4">
+        <div className="relative flex-1 overflow-auto bg-gray-100 flex items-center justify-center p-4">
           {loading && (
-            <div className="text-center">
+            <div className="text-center absolute inset-0 flex flex-col items-center justify-center bg-gray-100/80 z-10">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading document...</p>
             </div>
@@ -161,7 +161,7 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
             </div>
           )}
 
-          {!loading && !error && (
+          {!error && (
             <div 
               className="max-w-full max-h-full"
               style={{

@@ -88,17 +88,21 @@ const AdminClientsTab = () => {
     return matchesStatus && matchesSearch;
   });
 
-  const statusOptions = ['new', 'verified', 'traveled', 'returned'];
+  const statusOptions = ['new', 'under_review', 'verified', 'rejected', 'traveled', 'returned'];
   const statusColors = {
     new: 'bg-blue-100 text-blue-800',
+    under_review: 'bg-amber-100 text-amber-800',
     verified: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
     traveled: 'bg-yellow-100 text-yellow-800',
     returned: 'bg-purple-100 text-purple-800'
   };
 
   const statusLabels = {
     new: 'New',
+    under_review: 'Under Review',
     verified: 'Verified',
+    rejected: 'Rejected',
     traveled: 'Traveled',
     returned: 'Returned'
   };
@@ -134,12 +138,25 @@ const AdminClientsTab = () => {
   };
 
   const handleViewDocument = (document) => {
-    const fileUrl = `${process.env.REACT_APP_BACKEND_URL}${document.file_path}`;
-    setSelectedDocument({
-      ...document,
-      url: fileUrl
-    });
-    setShowPDFViewer(true);
+    APIService.getClientDocumentFile(document.id)
+      .then((response) => {
+        setSelectedDocument({
+          ...document,
+          url: `data:${response.mime_type};base64,${response.file_base64}`,
+          file_name: response.file_name || document.file_name
+        });
+        setShowPDFViewer(true);
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load document preview');
+      });
+  };
+
+  const getClientPhotoSrc = (client) => {
+    if (client.profile_photo_data) {
+      return `data:image/jpeg;base64,${client.profile_photo_data}`;
+    }
+    return APIService.getAssetUrl(client.profile_photo_url);
   };
 
   const getDisplayName = (client) => {
@@ -284,9 +301,9 @@ const AdminClientsTab = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          {client.profile_photo_url ? (
+                          {getClientPhotoSrc(client) ? (
                             <img 
-                              src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                              src={getClientPhotoSrc(client)}
                               alt={getDisplayName(client)}
                               className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
                               onError={(e) => {
@@ -295,7 +312,7 @@ const AdminClientsTab = () => {
                               }}
                             />
                           ) : null}
-                          <div className={`h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                          <div className={`h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${getClientPhotoSrc(client) ? 'hidden' : ''}`}>
                             {getDisplayName(client).charAt(0).toUpperCase()}
                           </div>
                         </div>
@@ -431,10 +448,10 @@ const AdminClientsTab = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="h-12 w-12 flex-shrink-0">
-                    {client.profile_photo_url ? (
+                    {getClientPhotoSrc(client) ? (
                       <img
                         className="h-12 w-12 rounded-full object-cover"
-                        src={`${process.env.REACT_APP_BACKEND_URL}${client.profile_photo_url}`}
+                        src={getClientPhotoSrc(client)}
                         alt={getDisplayName(client)}
                         onError={(e) => {
                           e.target.style.display = 'none';
@@ -442,7 +459,7 @@ const AdminClientsTab = () => {
                         }}
                       />
                     ) : null}
-                    <div className={`h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${client.profile_photo_url ? 'hidden' : ''}`}>
+                    <div className={`h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${getClientPhotoSrc(client) ? 'hidden' : ''}`}>
                       {getDisplayName(client).charAt(0).toUpperCase()}
                     </div>
                   </div>
