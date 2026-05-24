@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Calendar, CheckCircle } from 'lucide-react';
+import { X, User, CheckCircle } from 'lucide-react';
 import APIService from '../services/APIService';
 
 const AdminClientStatusUpdate = ({ clientId, clientName, currentStatus, isOpen, onClose, onSuccess }) => {

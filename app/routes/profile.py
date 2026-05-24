@@ -7,6 +7,7 @@ import logging
 import uuid
 
 from app.models import User, ClientProfile, ClientStatus
+from app.schemas import ApplicationWorkflowStatusEnum, ClientLifecycleStatusEnum
 from app.schemas import ClientProfileUpdate, ClientProfileResponse, ClientProfileCreate
 from app.database import get_db
 from app.dependencies import get_client_user
@@ -32,7 +33,37 @@ def _serialize_profile(profile: ClientProfile, user: User) -> dict:
             profile_dict["profile_photo_data"] = base64.b64encode(file_bytes).decode("utf-8")
         except Exception:
             profile_dict["profile_photo_data"] = None
+    if not profile_dict.get("application_status"):
+        profile_dict["application_status"] = ApplicationWorkflowStatusEnum.draft.value
+    if not profile_dict.get("client_lifecycle_status"):
+        profile_dict["client_lifecycle_status"] = ClientLifecycleStatusEnum.new_lead.value
     return profile_dict
+
+
+def _sync_profile_progress(profile: ClientProfile, actor_user_id: str) -> None:
+    completion = _get_onboarding_completion(profile)
+    has_documents = bool(getattr(profile, "documents", []))
+
+    if completion["is_complete"]:
+        profile.onboarding_completed_at = profile.onboarding_completed_at or datetime.utcnow()
+        next_status = (
+            ApplicationWorkflowStatusEnum.submitted.value
+            if has_documents else
+            ApplicationWorkflowStatusEnum.pending_documents.value
+        )
+    else:
+        next_status = ApplicationWorkflowStatusEnum.pending_profile_completion.value
+
+    profile.application_status = next_status
+    profile.application_status_updated_at = datetime.utcnow()
+    profile.application_status_updated_by = actor_user_id
+
+    if not profile.client_lifecycle_status:
+        profile.client_lifecycle_status = ClientLifecycleStatusEnum.new_lead.value
+    if completion["is_complete"] and profile.client_lifecycle_status == ClientLifecycleStatusEnum.new_lead.value:
+        profile.client_lifecycle_status = ClientLifecycleStatusEnum.applicant.value
+        profile.lifecycle_status_updated_at = datetime.utcnow()
+        profile.lifecycle_status_updated_by = actor_user_id
 
 @router.get("/me", response_model=ClientProfileResponse)
 def get_my_profile(
@@ -53,7 +84,9 @@ def get_my_profile(
             profile = ClientProfile(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
-                status=ClientStatus.new
+                status=ClientStatus.new,
+                application_status=ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                client_lifecycle_status=ClientLifecycleStatusEnum.new_lead.value,
             )
             db.add(profile)
             db.commit()
@@ -96,7 +129,9 @@ def update_my_profile(
             profile = ClientProfile(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
-                status=ClientStatus.new
+                status=ClientStatus.new,
+                application_status=ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                client_lifecycle_status=ClientLifecycleStatusEnum.new_lead.value,
             )
             db.add(profile)
             db.flush()
@@ -115,6 +150,7 @@ def update_my_profile(
         if profile.status == ClientStatus.new and _check_onboarding_complete(profile):
             profile.status = ClientStatus.under_review
             logger.info(f"Profile onboarding completed for user: {current_user.id}")
+        _sync_profile_progress(profile, current_user.id)
         
         db.commit()
         db.refresh(profile)
@@ -154,7 +190,9 @@ def complete_onboarding(
             profile = ClientProfile(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
-                status=ClientStatus.new
+                status=ClientStatus.new,
+                application_status=ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                client_lifecycle_status=ClientLifecycleStatusEnum.new_lead.value,
             )
             db.add(profile)
             db.flush()
@@ -168,6 +206,7 @@ def complete_onboarding(
         # Set onboarding completion status
         if _check_onboarding_complete(profile):
             profile.status = ClientStatus.under_review
+        _sync_profile_progress(profile, current_user.id)
         
         profile.updated_at = datetime.utcnow()
         profile.last_modified_by = current_user.id
@@ -203,7 +242,9 @@ def get_onboarding_status(
                 "is_complete": False,
                 "completion_percentage": 0,
                 "missing_fields": _get_required_fields(),
-                "status": "new"
+                "status": "new",
+                "application_status": ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                "client_lifecycle_status": ClientLifecycleStatusEnum.new_lead.value,
             }
         
         completion_status = _get_onboarding_completion(profile)
@@ -213,7 +254,9 @@ def get_onboarding_status(
             "is_complete": completion_status["is_complete"],
             "completion_percentage": completion_status["percentage"],
             "missing_fields": completion_status["missing_fields"],
-            "status": profile.status.value if profile.status else "new"
+            "status": profile.status.value if profile.status else "new",
+            "application_status": profile.application_status or ApplicationWorkflowStatusEnum.draft.value,
+            "client_lifecycle_status": profile.client_lifecycle_status or ClientLifecycleStatusEnum.new_lead.value,
         }
         
     except Exception as e:
@@ -239,7 +282,9 @@ def update_basic_info(
             profile = ClientProfile(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
-                status=ClientStatus.new
+                status=ClientStatus.new,
+                application_status=ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                client_lifecycle_status=ClientLifecycleStatusEnum.new_lead.value,
             )
             db.add(profile)
             db.flush()
@@ -252,6 +297,7 @@ def update_basic_info(
         
         profile.updated_at = datetime.utcnow()
         profile.last_modified_by = current_user.id
+        _sync_profile_progress(profile, current_user.id)
         
         db.commit()
         db.refresh(profile)
@@ -312,7 +358,9 @@ def upload_profile_photo(
             profile = ClientProfile(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
-                status=ClientStatus.new
+                status=ClientStatus.new,
+                application_status=ApplicationWorkflowStatusEnum.pending_profile_completion.value,
+                client_lifecycle_status=ClientLifecycleStatusEnum.new_lead.value,
             )
             db.add(profile)
 
@@ -328,6 +376,8 @@ def upload_profile_photo(
         db.commit()
         db.refresh(profile)
         
+        _sync_profile_progress(profile, current_user.id)
+
         return {
             "photo_url": build_public_url(profile.profile_photo_url),
             "profile_photo_url": build_public_url(profile.profile_photo_url),
@@ -348,7 +398,7 @@ def _get_onboarding_completion(profile: ClientProfile) -> dict:
     required_fields = _get_required_fields()
     
     optional_fields = [
-        'middle_name', 'nin', 'passport_number', 'passport_expiry',
+        'middle_name', 'nin', 'passport_number',
         'phone_secondary', 'address_permanent'
     ]
     

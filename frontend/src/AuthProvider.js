@@ -162,6 +162,22 @@ export const AuthProvider = ({ children }) => {
     }, 30 * 60 * 1000); // 30 minutes
   }, [logout]);
 
+  const persistSession = useCallback((token, nextUser) => {
+    const stored = StorageManager.setAuthData(
+      token,
+      nextUser,
+      7 * 24 * 60 * 60 * 1000
+    );
+
+    if (!stored) {
+      throw new Error('Failed to store session data');
+    }
+
+    APIService.setAuthToken(token);
+    setUser(nextUser);
+    updateActivity();
+  }, [updateActivity]);
+
   // Set up activity tracking
   useEffect(() => {
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
@@ -203,7 +219,11 @@ export const AuthProvider = ({ children }) => {
           // Verify token in background without affecting current session
           setTimeout(async () => {
             try {
-              await APIService.getCurrentUser();
+              const freshUser = await APIService.getCurrentUser();
+              if (freshUser) {
+                setUser(freshUser);
+                StorageManager.setAuthData(authData.token, freshUser, 7 * 24 * 60 * 60 * 1000);
+              }
               console.log('Background token verification successful');
             } catch (apiError) {
               console.log('Background token verification failed:', apiError);
@@ -231,7 +251,7 @@ export const AuthProvider = ({ children }) => {
     if (!initialized) {
       initializeAuth();
     }
-  }, [initialized]); // Only depend on initialized flag to avoid infinite loops
+  }, [initialized, logout, updateActivity]);
 
   // Set up heartbeat to keep session alive
   useEffect(() => {
@@ -254,29 +274,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, updateActivity]);
 
-  const login = useCallback(async (credentials, isClient = false) => {
+  const login = useCallback(async (credentials) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await APIService.login(credentials, isClient);
+      const response = await APIService.login(credentials);
       
       if (response && response.access_token && response.user) {
-        // Store auth data with extended expiry (7 days)
-        const stored = StorageManager.setAuthData(
-          response.access_token, 
-          response.user, 
-          7 * 24 * 60 * 60 * 1000 // 7 days
-        );
-        
-        if (stored) {
-          APIService.setAuthToken(response.access_token);
-          setUser(response.user);
-          updateActivity(); // Start activity tracking
-          console.log('Login successful, session stored');
-        } else {
-          throw new Error('Failed to store session data');
-        }
+        persistSession(response.access_token, response.user);
       } else {
         throw new Error('Invalid login response');
       }
@@ -290,31 +296,17 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [updateActivity]);
+  }, [persistSession]);
 
-  const register = useCallback(async (userData, isClient = true) => {
+  const register = useCallback(async (userData) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await APIService.register(userData, isClient);
+      const response = await APIService.register(userData);
       
       if (response && response.access_token && response.user) {
-        // Store auth data
-        const stored = StorageManager.setAuthData(
-          response.access_token, 
-          response.user, 
-          7 * 24 * 60 * 60 * 1000 // 7 days
-        );
-        
-        if (stored) {
-          APIService.setAuthToken(response.access_token);
-          setUser(response.user);
-          updateActivity();
-          console.log('Registration successful, session stored');
-        } else {
-          throw new Error('Failed to store session data');
-        }
+        persistSession(response.access_token, response.user);
       } else {
         throw new Error('Invalid registration response');
       }
@@ -328,7 +320,30 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [updateActivity]);
+  }, [persistSession]);
+
+  const changePassword = useCallback(async (payload) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedUser = await APIService.changePassword(payload);
+      const authData = StorageManager.getAuthData();
+      if (authData?.token) {
+        persistSession(authData.token, updatedUser);
+      } else {
+        setUser(updatedUser);
+      }
+      return updatedUser;
+    } catch (err) {
+      const errorMessage = err instanceof APIError ? err.message :
+        typeof err === 'string' ? err :
+        'Password change failed. Please try again.';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [persistSession]);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -336,6 +351,11 @@ export const AuthProvider = ({ children }) => {
       
       const response = await APIService.getCurrentUser();
       if (response) {
+        setUser(response);
+        const authData = StorageManager.getAuthData();
+        if (authData?.token) {
+          StorageManager.setAuthData(authData.token, response, 7 * 24 * 60 * 60 * 1000);
+        }
         updateActivity();
         return true;
       }
@@ -366,6 +386,7 @@ export const AuthProvider = ({ children }) => {
     isClient,
     login,
     register,
+    changePassword,
     logout,
     clearError,
     refreshSession

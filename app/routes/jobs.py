@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
+from datetime import datetime
+
 from app.models import User, JobOpportunity, JobApplication, ClientProfile
+from app.schemas import ApplicationWorkflowStatusEnum, ClientLifecycleStatusEnum
 from app.schemas import JobOpportunityCreate, JobOpportunityResponse, JobApplicationResponse
 from app.database import get_db
 from app.dependencies import get_admin_user, get_client_user
@@ -79,6 +82,13 @@ def apply_for_job(
         application_status="applied"
     )
     db.add(application)
+    client_profile.application_status = ApplicationWorkflowStatusEnum.submitted.value
+    client_profile.application_status_updated_at = datetime.utcnow()
+    client_profile.application_status_updated_by = user.id
+    if client_profile.client_lifecycle_status == ClientLifecycleStatusEnum.new_lead.value:
+        client_profile.client_lifecycle_status = ClientLifecycleStatusEnum.applicant.value
+        client_profile.lifecycle_status_updated_at = datetime.utcnow()
+        client_profile.lifecycle_status_updated_by = user.id
     db.commit()
     db.refresh(application)
     return {"message": "Application submitted successfully", "application_id": application.id}

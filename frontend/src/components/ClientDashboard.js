@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   LogOut, User, FileText, Briefcase, Calendar, 
-  Bell, Settings, ChevronDown, Search, Filter,
-  AlertCircle, CheckCircle, Clock, TrendingUp, BarChart3, Menu, X
+  Bell, CheckCircle, Clock, BarChart3, Menu, X
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
+import { usePortal } from '../context/PortalContext';
 import APIService, { APIError } from '../services/APIService';
+import EmptyState from './EmptyState';
 import ProfileTab from './ProfileTab';
 import ClientChatWidget from './ClientChatWidget';
 import DocumentsTab from './DocumentsTab';
 import JobsTab from './JobsTab';
 import ApplicationsTab from './ApplicationsTab';
 import LoadingSpinner from './LoadingSpinner';
+import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 // Dashboard stats component
@@ -35,11 +37,11 @@ const DashboardStats = ({ profile, documents, applications }) => {
     },
     {
       name: 'Profile Status',
-      value: profile?.status === 'verified' ? 'Verified' : 'Pending',
+      value: profile?.application_status ? profile.application_status.replace(/_/g, ' ') : 'Pending',
       suffix: '',
       icon: CheckCircle,
       color: profile?.status === 'verified' ? 'bg-green-500' : 'bg-yellow-500',
-      description: 'Current verification status for overseas employment'
+      description: 'Current application stage for your Gulf Consultant journey'
     },
     {
       name: 'Active Applications',
@@ -86,11 +88,12 @@ const RecentActivity = ({ applications }) => {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Applications</h3>
       {recentApplications.length === 0 ? (
-        <div className="text-center py-8">
-          <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 mb-2">No applications yet</p>
-          <p className="text-sm text-gray-400">Start applying to jobs to see your activity here</p>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title="No applications yet"
+          description="When you submit a job application, it will appear here with its latest progress."
+          tone="soft"
+        />
       ) : (
         <div className="space-y-4">
           {recentApplications.map((app, index) => (
@@ -130,17 +133,19 @@ const ClientDashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { logout, user } = useAuth();
+  const { unreadMessages, setUnreadMessages } = usePortal();
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [profileData, documentsData, jobsData, applicationsData] = await Promise.all([
+      const [profileData, documentsData, jobsData, applicationsData, unreadData] = await Promise.all([
         APIService.getProfile().catch(() => null),
         APIService.getDocuments().catch(() => []),
         APIService.getJobs().catch(() => []),
-        APIService.getMyApplications().catch(() => [])
+        APIService.getMyApplications().catch(() => []),
+        APIService.getUnreadMessageCount().catch(() => ({ unread_count: 0 }))
       ]);
 
       setProfile(profileData);
@@ -153,6 +158,7 @@ const ClientDashboard = () => {
         status: app.application_status || app.status || 'pending'
       }));
       setApplications(mappedApplications);
+      setUnreadMessages(unreadData?.unread_count || 0);
 
       setNotifications([]); // Placeholder for notifications
     } catch (err) {
@@ -161,7 +167,7 @@ const ClientDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUnreadMessages]);
 
   useEffect(() => {
     loadDashboardData();
@@ -205,7 +211,7 @@ const ClientDashboard = () => {
               className="p-2 hover:bg-gray-100 rounded-lg relative"
             >
               <Bell className="h-5 w-5 text-gray-600" />
-              {notifications.length > 0 && (
+              {unreadMessages > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
               )}
             </button>
@@ -241,7 +247,7 @@ const ClientDashboard = () => {
                     {profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || user?.email : 'Client'}
                   </h2>
                   <p className="text-sm text-gray-600">
-                    {profile?.status === 'verified' ? 'Verified Client' : 'Pending Verification'}
+                    {profile?.status === 'verified' ? 'Verified Client' : 'Application In Progress'}
                   </p>
                 </div>
               </div>
@@ -349,6 +355,31 @@ const ClientDashboard = () => {
                   documents={documents} 
                   applications={applications} 
                 />
+                {profile ? (
+                  <div className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900">Your Application Journey</h2>
+                        <p className="text-sm text-gray-600">Track your form review and travel preparation in clear steps.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <StatusBadge value={profile.application_status} />
+                        <StatusBadge
+                          value={profile.client_lifecycle_status}
+                          label={
+                            {
+                              under_processing: 'Your application is being processed',
+                              visa_processing: 'Your travel documents are being processed',
+                              ready_to_travel: 'You are ready for travel',
+                              traveled: 'Travel completed',
+                              returned: 'Returned',
+                            }[profile.client_lifecycle_status] || undefined
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <RecentActivity applications={applications} />
               </div>
             )}
@@ -356,14 +387,14 @@ const ClientDashboard = () => {
             {activeTab === 'profile' && (
               <ProfileTab 
                 profile={profile} 
-                onProfileUpdate={setProfile}
-                onDataReload={loadDashboardData}
+                onUpdate={setProfile}
               />
             )}
             
             {activeTab === 'documents' && (
               <DocumentsTab 
                 documents={documents}
+                onUpdate={loadDashboardData}
                 onDocumentsUpdate={setDocuments}
                 onDataReload={loadDashboardData}
               />

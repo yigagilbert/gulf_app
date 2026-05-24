@@ -1,27 +1,31 @@
 # utils.py
-from passlib.context import CryptContext
 from datetime import datetime, timedelta
-import jwt
+import logging
 import os
 import secrets
-import logging
+
+import jwt
+from passlib.context import CryptContext
 
 logger = logging.getLogger(__name__)
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
+def get_environment() -> str:
+    return (os.getenv("ENVIRONMENT") or "development").strip().lower()
+
 # JWT Configuration with proper validation
 def get_jwt_secret():
     """Get JWT secret key with fallback for development"""
     # Try different possible environment variable names
-    secret_key =  os.getenv("SECRET_KEY", "qyvUhnfOstdZTFD_5OTFmDxdipvdz_3yfUsy8MogLRI")
+    secret_key = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET_KEY")
 
     if not secret_key:
-        if os.getenv("ENVIRONMENT") == "production":
+        if get_environment() == "production":
             raise ValueError(
-                "JWT secret key is required in production. "
-                "Set JWT_SECRET_KEY environment variable."
+                "SECRET_KEY is required in production."
             )
         else:
             # Generate a secure key for development
@@ -31,8 +35,8 @@ def get_jwt_secret():
                 f"Generated temporary key: {secret_key}"
             )
             logger.info(
-                "For production, set JWT_SECRET_KEY environment variable. "
-                "Add to .env file: JWT_SECRET_KEY=" + secret_key
+                "For production, set SECRET_KEY environment variable. "
+                "Add to .env file: SECRET_KEY=" + secret_key
             )
     
     # Validate key strength (should be at least 32 bytes)
@@ -43,7 +47,8 @@ def get_jwt_secret():
 
 # Initialize JWT settings
 SECRET_KEY = get_jwt_secret()
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ALGORITHM = os.getenv("ALGORITHM") or os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "24"))
 
 # Validate algorithm
 ALLOWED_ALGORITHMS = ["HS256", "HS384", "HS512"]
@@ -78,7 +83,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     if expires_delta:
         expire = now + expires_delta
     else:
-        expire = now + timedelta(hours=24)
+        expire = now + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     
     # Add standard JWT claims
     to_encode.update({
@@ -125,7 +130,7 @@ def generate_secret_key():
     """Generate a secure secret key for development"""
     key = secrets.token_urlsafe(32)
     print(f"Generated secure secret key: {key}")
-    print(f"Add to your .env file: JWT_SECRET_KEY={key}")
+    print(f"Add to your .env file: SECRET_KEY={key}")
     return key
 
 # Startup validation
@@ -136,6 +141,8 @@ def validate_jwt_config():
     
     if len(SECRET_KEY.encode('utf-8')) < 32:
         logger.warning("JWT secret key should be at least 32 bytes")
+    if ACCESS_TOKEN_EXPIRE_HOURS <= 0:
+        raise ValueError("ACCESS_TOKEN_EXPIRE_HOURS must be greater than 0")
     
     logger.info(f"JWT configured with algorithm: {ALGORITHM}")
 

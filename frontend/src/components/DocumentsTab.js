@@ -1,11 +1,31 @@
 import React, { useState } from 'react';
-import { Upload, Download, User, FileText } from 'lucide-react';
+import { Upload, Download, User, FileText, Eye } from 'lucide-react';
 import APIService from '../services/APIService';
+import EmptyState from './EmptyState';
+import PDFViewer from './PDFViewer';
+import StatusBadge from './StatusBadge';
 
-const DocumentsTab = ({ documents, onUpdate }) => {
+const DocumentsTab = ({ documents = [], onUpdate, onDocumentsUpdate, onDataReload }) => {
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
+  const [previewDocument, setPreviewDocument] = useState(null);
+
+  const refreshDocuments = async () => {
+    if (typeof onDataReload === 'function') {
+      await onDataReload();
+      return;
+    }
+
+    if (typeof onUpdate === 'function') {
+      await onUpdate();
+      return;
+    }
+
+    if (typeof onDocumentsUpdate === 'function') {
+      const latestDocuments = await APIService.getDocuments();
+      onDocumentsUpdate(latestDocuments || []);
+    }
+  };
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -15,21 +35,14 @@ const DocumentsTab = ({ documents, onUpdate }) => {
 
     setUploading(true);
     setError(null);
-    setUploadProgress(0);
-
     try {
-      // FIXED: Use proper APIService method with progress tracking
-      await APIService.uploadDocument(file, documentType, (progress) => {
-        setUploadProgress(progress);
-      });
-      
-      await onUpdate(); // Refresh data after successful upload
+      await APIService.uploadDocument(file, documentType);
+      await refreshDocuments();
     } catch (error) {
       console.error('Upload failed:', error);
       setError(error.message);
     } finally {
       setUploading(false);
-      setUploadProgress(0);
       // Reset file input
       event.target.value = '';
     }
@@ -45,28 +58,24 @@ const DocumentsTab = ({ documents, onUpdate }) => {
     }
   };
 
-  // Add error display to the component
-  const renderErrorMessage = () => {
-    if (!error) return null;
-    
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-        {error}
-        <button 
-          onClick={() => setError(null)}
-          className="ml-2 text-red-900 hover:text-red-700"
-        >
-          ×
-        </button>
-      </div>
-    );
+  const handlePreview = async (document) => {
+    try {
+      const preview = await APIService.getDocumentPreview(document.id);
+      setPreviewDocument({
+        fileName: preview.file_name,
+        fileUrl: `data:${preview.mime_type};base64,${preview.file_base64}`,
+        allowDownload: preview.allow_download,
+      });
+    } catch (previewError) {
+      setError(previewError.message);
+    }
   };
 
   const documentTypes = [
     { key: 'cv', label: 'CV/Resume', icon: FileText },
     { key: 'photo', label: 'Profile Photo', icon: User },
     { key: 'passport', label: 'Passport', icon: FileText },
-    { key: 'nin_card', label: 'NIN Card', icon: FileText },
+    { key: 'nin_card', label: 'National ID', icon: FileText },
     { key: 'certificate', label: 'Certificates', icon: FileText },
     { key: 'medical', label: 'Medical Reports', icon: FileText },
     { key: 'police_clearance', label: 'Police Clearance', icon: FileText },
@@ -75,6 +84,17 @@ const DocumentsTab = ({ documents, onUpdate }) => {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">My Documents</h2>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+          {error}
+          <button 
+            onClick={() => setError(null)}
+            className="ml-2 text-red-900 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {documentTypes.map(({ key, label, icon: Icon }) => {
@@ -93,19 +113,28 @@ const DocumentsTab = ({ documents, onUpdate }) => {
                     <span className="truncate">{document.file_name}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                      document.is_verified 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {document.is_verified ? 'Verified' : 'Pending'}
-                    </span>
-                    <button
-                      onClick={() => handleDownload(document.id, document.file_name)}
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge value={document.status || (document.is_verified ? 'verified' : 'pending')} />
+                      {document.access_level ? <StatusBadge value={document.access_level} /> : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handlePreview(document)}
+                        className="text-slate-600 hover:text-slate-800"
+                        aria-label="Preview document"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      {document.access_level !== 'view_only' ? (
+                        <button
+                          onClick={() => handleDownload(document.id, document.file_name)}
+                          className="text-blue-600 hover:text-blue-700"
+                          aria-label="Download document"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -131,6 +160,27 @@ const DocumentsTab = ({ documents, onUpdate }) => {
           );
         })}
       </div>
+
+      {documents.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            icon={FileText}
+            title="No documents uploaded yet"
+            description="Upload your required documents here so our team can review your application faster."
+            tone="soft"
+          />
+        </div>
+      ) : null}
+
+      {previewDocument ? (
+        <PDFViewer
+          isOpen={Boolean(previewDocument)}
+          onClose={() => setPreviewDocument(null)}
+          fileUrl={previewDocument.fileUrl}
+          fileName={previewDocument.fileName}
+          allowDownload={previewDocument.allowDownload}
+        />
+      ) : null}
     </div>
   );
 };

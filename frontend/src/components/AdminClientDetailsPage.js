@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Edit, Save, X, User, Mail, Phone, MapPin, Calendar, FileText, Shield, Heart, Briefcase } from 'lucide-react';
+import { ArrowLeft, Camera, Edit, Save, X, User, Mail, FileText, Shield, Heart, Briefcase } from 'lucide-react';
 import APIService from '../services/APIService';
+import EmptyState from './EmptyState';
+import StatusBadge from './StatusBadge';
 
 const AdminClientDetailsPage = () => {
   const { clientId } = useParams();
@@ -13,6 +15,9 @@ const AdminClientDetailsPage = () => {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [applicationStatusDraft, setApplicationStatusDraft] = useState('draft');
+  const [lifecycleStatusDraft, setLifecycleStatusDraft] = useState('new_lead');
 
   // Define which fields to display and their labels - Comprehensive version
   const fieldConfig = {
@@ -107,23 +112,29 @@ const AdminClientDetailsPage = () => {
     }
   };
 
-  useEffect(() => {
-    loadClient();
-  }, [clientId]);
-
-  const loadClient = async () => {
+  const loadClient = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await APIService.getClientProfile(clientId);
+      const [data, history] = await Promise.all([
+        APIService.getClientProfile(clientId),
+        APIService.getClientStatusHistory(clientId).catch(() => []),
+      ]);
       setClient(data);
       setForm(data);
+      setStatusHistory(history || []);
+      setApplicationStatusDraft(data.application_status || 'draft');
+      setLifecycleStatusDraft(data.client_lifecycle_status || 'new_lead');
     } catch (err) {
       setError(err.message || 'Failed to load client details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
+
+  useEffect(() => {
+    loadClient();
+  }, [loadClient]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -180,6 +191,19 @@ const AdminClientDetailsPage = () => {
       setError(err.message || 'Failed to upload profile photo');
     } finally {
       setPhotoUploading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (statusType) => {
+    try {
+      if (statusType === 'application') {
+        await APIService.updateClientApplicationStatus(clientId, applicationStatusDraft);
+      } else {
+        await APIService.updateClientLifecycleStatus(clientId, lifecycleStatusDraft);
+      }
+      await loadClient();
+    } catch (statusError) {
+      setError(statusError.message || 'Failed to update status');
     }
   };
 
@@ -344,10 +368,10 @@ const AdminClientDetailsPage = () => {
             )}
 
             {/* Status Badge */}
-            <div className="inline-flex items-center">
-              <span className={`px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(client.status)} bg-white`}>
-                {formatValue(client.status, 'status')}
-              </span>
+            <div className="inline-flex flex-wrap items-center justify-center gap-2">
+              <StatusBadge value={client.status} label={formatValue(client.status, 'status')} className="bg-white" />
+              {client.application_status ? <StatusBadge value={client.application_status} className="bg-white" /> : null}
+              {client.client_lifecycle_status ? <StatusBadge value={client.client_lifecycle_status} className="bg-white" /> : null}
             </div>
           </div>
         </div>
@@ -448,6 +472,52 @@ const AdminClientDetailsPage = () => {
               </button>
             </div>
 
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900">Application Workflow</h3>
+                <p className="mt-1 text-sm text-gray-600">Update the form and review stage for this client.</p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <select
+                    value={applicationStatusDraft}
+                    onChange={(event) => setApplicationStatusDraft(event.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {['draft', 'pending_profile_completion', 'pending_documents', 'submitted', 'under_review', 'needs_update', 'approved', 'rejected', 'processing', 'completed'].map((value) => (
+                      <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleStatusUpdate('application')}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  >
+                    Save Workflow
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900">Client Lifecycle</h3>
+                <p className="mt-1 text-sm text-gray-600">Track the client’s real-world journey after application review.</p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <select
+                    value={lifecycleStatusDraft}
+                    onChange={(event) => setLifecycleStatusDraft(event.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {['new_lead', 'applicant', 'under_processing', 'selected', 'visa_processing', 'ready_to_travel', 'traveled', 'active_abroad', 'returned', 'cancelled', 'inactive'].map((value) => (
+                      <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleStatusUpdate('lifecycle')}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  >
+                    Save Lifecycle
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Information Sections */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {Object.entries(fieldConfig).map(([sectionKey, section]) => (
@@ -502,6 +572,39 @@ const AdminClientDetailsPage = () => {
                 <p>Employment records will be displayed here</p>
                 <p className="text-sm">Feature coming soon</p>
               </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Status History</h3>
+              </div>
+              {statusHistory.length === 0 ? (
+                <EmptyState
+                  icon={FileText}
+                  title="No status updates yet"
+                  description="Application and travel status changes will appear here once the team starts updating this client’s journey."
+                  tone="soft"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {statusHistory.slice(0, 8).map((entry) => (
+                    <div key={entry.id} className="rounded-xl border border-slate-200 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge value={entry.new_status} />
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{entry.status_type}</span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {entry.previous_status ? `Changed from ${entry.previous_status.replace(/_/g, ' ')} to ${entry.new_status.replace(/_/g, ' ')}.` : `Set to ${entry.new_status.replace(/_/g, ' ')}.`}
+                      </p>
+                      {entry.notes ? <p className="mt-1 text-sm text-slate-500">{entry.notes}</p> : null}
+                      <p className="mt-2 text-xs text-slate-400">{formatValue(entry.created_at, 'created_at')}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* System Information */}

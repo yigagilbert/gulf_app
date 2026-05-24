@@ -14,7 +14,23 @@ except ImportError:  # pragma: no cover - optional dependency in local fallback 
     Config = None
 
 
-STORAGE_PROVIDER = os.getenv("STORAGE_PROVIDER", "local").lower()
+def _normalize_storage_provider(value: Optional[str]) -> str:
+    provider = (value or "local").strip().lower()
+    aliases = {
+        "r2": "cloudflare_r2",
+        "cloudflare-r2": "cloudflare_r2",
+        "cloudflare_r2": "cloudflare_r2",
+        "local": "local",
+    }
+    normalized = aliases.get(provider)
+    if not normalized:
+        raise RuntimeError(
+            "Invalid STORAGE_PROVIDER value. Supported values are 'local' and 'r2'."
+        )
+    return normalized
+
+
+STORAGE_PROVIDER = _normalize_storage_provider(os.getenv("STORAGE_PROVIDER", "local"))
 LOCAL_UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
 R2_BUCKET = os.getenv("CLOUDFLARE_R2_BUCKET")
 R2_PREFIX = os.getenv("CLOUDFLARE_R2_PREFIX", "gulfconsultant").strip("/")
@@ -32,6 +48,25 @@ class StoredFile:
 
 def is_local_storage() -> bool:
     return STORAGE_PROVIDER == "local"
+
+
+def validate_storage_config() -> None:
+    if STORAGE_PROVIDER == "local":
+        return
+
+    required = {
+        "CLOUDFLARE_R2_BUCKET": R2_BUCKET,
+        "CLOUDFLARE_R2_ENDPOINT_URL": R2_ENDPOINT_URL,
+        "CLOUDFLARE_R2_ACCESS_KEY_ID": R2_ACCESS_KEY_ID,
+        "CLOUDFLARE_R2_SECRET_ACCESS_KEY": R2_SECRET_ACCESS_KEY,
+        "CLOUDFLARE_R2_PUBLIC_BASE_URL": R2_PUBLIC_BASE_URL,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise RuntimeError(
+            "Cloudflare R2 storage is enabled but required environment variables are missing: "
+            + ", ".join(missing)
+        )
 
 
 def get_local_upload_dir() -> Path:

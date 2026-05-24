@@ -5,7 +5,7 @@
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'https://gulf-app-09b1d0de22d2.herokuapp.com/api', // Use .env value or fallback
+  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api',
   TIMEOUT: 30000, // 30 seconds
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
@@ -20,13 +20,6 @@ const API_CONFIG = {
   RETRY_DELAYS: [1000, 2000, 4000], // Exponential backoff
   QUEUE_LIMIT: 10
 };
-
-// Debug logging for environment configuration
-console.log('🔧 API Configuration:', {
-  BASE_URL: API_CONFIG.BASE_URL,
-  ENV_VAR: process.env.REACT_APP_BACKEND_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
 
 /**
  * Enhanced API Error class with better categorization
@@ -200,15 +193,15 @@ class APIServiceClass {
           errorMessage = 'Network error. Please check your connection.';
         } else if (response.status === 401) {
           errorType = 'auth';
-          errorMessage = 'Authentication required. Please log in again.';
+          errorMessage = errorData?.detail || 'Authentication required. Please log in again.';
         } else if (response.status === 403) {
           errorType = 'auth';
-          errorMessage = 'Access denied. You do not have permission to perform this action.';
+          errorMessage = errorData?.detail || 'Access denied. You do not have permission to perform this action.';
         } else if (response.status === 404) {
-          errorMessage = 'Resource not found.';
+          errorMessage = errorData?.detail || 'Resource not found.';
         } else if (response.status >= 500) {
           errorType = 'server';
-          errorMessage = 'Server error. Please try again later.';
+          errorMessage = errorData?.detail || 'Server error. Please try again later.';
         }
 
         throw new APIError(errorMessage, response.status, errorData, errorType);
@@ -237,8 +230,6 @@ class APIServiceClass {
   async _makeRequest(endpoint, options = {}) {
     const requestId = ++this.requestId;
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
-    
-    console.log(`[${requestId}] Making request to:`, url);
 
     const requestOptions = {
       method: 'GET',
@@ -255,8 +246,6 @@ class APIServiceClass {
     
     for (let attempt = 0; attempt <= API_CONFIG.MAX_RETRIES; attempt++) {
       try {
-        console.log(`[${requestId}] Attempt ${attempt + 1}/${API_CONFIG.MAX_RETRIES + 1}`);
-        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
         
@@ -268,7 +257,6 @@ class APIServiceClass {
         clearTimeout(timeoutId);
         
         const result = await this.handleResponse(response, requestId);
-        console.log(`[${requestId}] Request successful`);
         return result;
         
       } catch (error) {
@@ -283,7 +271,6 @@ class APIServiceClass {
         // Don't retry on the last attempt
         if (attempt < API_CONFIG.MAX_RETRIES) {
           const delay = API_CONFIG.RETRY_DELAYS[attempt] || API_CONFIG.RETRY_DELAYS[API_CONFIG.RETRY_DELAYS.length - 1];
-          console.log(`[${requestId}] Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -303,10 +290,9 @@ class APIServiceClass {
   /**
    * Authentication endpoints
    */
-  async login(credentials, isClient = false) {
+  async login(credentials) {
     try {
-      const endpoint = isClient ? '/auth/login/client' : '/auth/login/admin';
-      const response = await this.request(endpoint, {
+      const response = await this.request('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials)
       });
@@ -322,10 +308,9 @@ class APIServiceClass {
     }
   }
 
-  async register(userData, isClient = true) {
+  async register(userData) {
     try {
-      const endpoint = isClient ? '/auth/register/client' : '/auth/register/admin';
-      const response = await this.request(endpoint, {
+      const response = await this.request('/auth/register/client', {
         method: 'POST',
         body: JSON.stringify(userData)
       });
@@ -371,6 +356,13 @@ class APIServiceClass {
     return this.request('/auth/me');
   }
 
+  async changePassword(payload) {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
   async getOnboardingStatus() {
     return this.request('/profile/me/onboarding-status');
   }
@@ -391,6 +383,10 @@ class APIServiceClass {
       method: 'POST',
       body: formData
     });
+  }
+
+  async getDocumentPreview(documentId) {
+    return this.request(`/documents/${documentId}/preview`);
   }
 
   /**
@@ -437,11 +433,29 @@ class APIServiceClass {
     return this.request('/chat/admins');
   }
 
+  async getChatConversations() {
+    return this.request('/chat/conversations');
+  }
+
+  async getUnreadMessageCount() {
+    return this.request('/chat/unread-count');
+  }
+
+  async markConversationRead(userId) {
+    return this.request(`/chat/history/${userId}/read`, {
+      method: 'POST'
+    });
+  }
+
   /**
    * Admin endpoints
    */
   async getClients() {
     return this.request('/admin/clients');
+  }
+
+  async getAdminDashboardStats() {
+    return this.request('/admin/dashboard_stats');
   }
 
   async createClient(clientData) {
@@ -462,11 +476,18 @@ class APIServiceClass {
     });
   }
 
-  async uploadClientDocument(clientId, file, documentType) {
+  async uploadClientDocument(
+    clientId,
+    file,
+    documentType,
+    visibility = 'client_visible',
+    accessLevel = 'view_only',
+    reviewStatus = 'pending'
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     
-    return this.request(`/admin/clients/${clientId}/documents/upload?document_type=${documentType}`, {
+    return this.request(`/admin/clients/${clientId}/documents/upload?document_type=${documentType}&visibility=${visibility}&access_level=${accessLevel}&status=${reviewStatus}`, {
       method: 'POST',
       body: formData,
       skipContentType: true
@@ -497,6 +518,24 @@ class APIServiceClass {
     });
   }
 
+  async updateClientApplicationStatus(clientId, status, notes = '') {
+    return this.request(`/admin/clients/${clientId}/application-status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes })
+    });
+  }
+
+  async updateClientLifecycleStatus(clientId, status, notes = '') {
+    return this.request(`/admin/clients/${clientId}/lifecycle-status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes })
+    });
+  }
+
+  async getClientStatusHistory(clientId) {
+    return this.request(`/admin/clients/${clientId}/status-history`);
+  }
+
   async deleteClient(clientId) {
     return this.request(`/admin/clients/${clientId}`, {
       method: 'DELETE'
@@ -517,6 +556,31 @@ class APIServiceClass {
 
   async getAllApplications() {
     return this.request('/admin/applications');
+  }
+
+  async getAdminUsers() {
+    return this.request('/admin/users');
+  }
+
+  async createAdminUser(userData) {
+    return this.request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    });
+  }
+
+  async updateAdminUser(userId, payload) {
+    return this.request(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async resetAdminUserPassword(userId, payload) {
+    return this.request(`/admin/users/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   }
 
   /**

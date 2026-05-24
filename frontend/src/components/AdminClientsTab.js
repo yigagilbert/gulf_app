@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Users, UserPlus, Search, Filter, Eye, Edit, Check, X, 
-  ChevronDown, Mail, Phone, Calendar, AlertCircle, 
-  RefreshCw, MoreHorizontal, Settings, Upload, FileText, Trash2
+  Users, UserPlus, Search, Eye, Edit, Check, X, 
+  ChevronDown, Mail, Calendar, 
+  RefreshCw, MoreHorizontal, Upload, FileText, Trash2
 } from 'lucide-react';
 import APIService from '../services/APIService';
 import AdminClientCreation from './AdminClientCreation';
@@ -11,8 +11,10 @@ import AdminDocumentUpload from './AdminDocumentUpload';
 import AdminClientDocuments from './AdminClientDocuments';
 import AdminClientStatusUpdate from './AdminClientStatusUpdate';
 import AdminClientDeleteConfirmation from './AdminClientDeleteConfirmation';
+import EmptyState from './EmptyState';
 import PDFViewer from './PDFViewer';
 import LoadingSpinner from './LoadingSpinner';
+import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 const AdminClientsTab = () => {
@@ -24,7 +26,6 @@ const AdminClientsTab = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [showStatusUpdate, setShowStatusUpdate] = useState(false);
@@ -33,10 +34,6 @@ const AdminClientsTab = () => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [clientDocuments, setClientDocuments] = useState({});
   const navigate = useNavigate();
-
-  useEffect(() => {
-    loadClients();
-  }, []);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -53,8 +50,12 @@ const AdminClientsTab = () => {
     }
   }, []);
 
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
+
   const handleClientCreated = (newClient) => {
-    setSuccess(`Client account created successfully for ${newClient.email}`);
+    setSuccess(`Client account created successfully for ${newClient.email || newClient.phone_number || 'the new client'}`);
     loadClients(); // Refresh the list
     setTimeout(() => setSuccess(null), 5000);
   };
@@ -163,7 +164,7 @@ const AdminClientsTab = () => {
     if (client.first_name || client.last_name) {
       return `${client.first_name || ''} ${client.last_name || ''}`.trim();
     }
-    return client.user_email || 'Unknown';
+    return client.user_email || client.phone_number || 'Unknown';
   };
 
   const formatDate = (dateString) => {
@@ -322,17 +323,22 @@ const AdminClientsTab = () => {
                           </div>
                           <div className="text-sm text-gray-500 flex items-center">
                             <Mail className="h-4 w-4 mr-1" />
-                            {client.user_email}
+                            {client.user_email || client.phone_number || 'Phone-based onboarding'}
                           </div>
+                          {client.unread_messages > 0 ? (
+                            <div className="mt-1 text-xs font-semibold text-blue-700">
+                              {client.unread_messages} unread message{client.unread_messages === 1 ? '' : 's'}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {statusLabels[client.status] || client.status || 'Unknown'}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <StatusBadge value={client.status} label={statusLabels[client.status] || client.status || 'Unknown'} />
+                        {client.application_status ? <StatusBadge value={client.application_status} /> : null}
+                        {client.client_lifecycle_status ? <StatusBadge value={client.client_lifecycle_status} /> : null}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
@@ -435,12 +441,15 @@ const AdminClientsTab = () => {
       {/* Client Cards - Mobile & Tablet */}
       <div className="lg:hidden space-y-4">
         {filteredClients.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">
-              {loading ? 'Loading clients...' : 'No clients found'}
-            </p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title={searchTerm || statusFilter ? 'No clients match your search' : 'No applications yet'}
+            description={searchTerm || statusFilter
+              ? 'Try adjusting the search or filters to find the client you need.'
+              : 'When clients apply online or your team creates client drafts, they will appear here.'}
+            actionLabel={!searchTerm && !statusFilter ? 'Create Client' : undefined}
+            onAction={!searchTerm && !statusFilter ? () => setShowCreateModal(true) : undefined}
+          />
         ) : (
           filteredClients.map((client) => (
             <div key={client.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
@@ -468,15 +477,17 @@ const AdminClientsTab = () => {
                       {getDisplayName(client)}
                     </h3>
                     <p className="text-sm text-gray-500 truncate">
-                      {client.user_email}
+                      {client.user_email || client.phone_number || 'Phone-based onboarding'}
                     </p>
-                    <div className="mt-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        statusColors[client.status] || 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {statusLabels[client.status] || client.status || 'Unknown'}
-                      </span>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <StatusBadge value={client.status} label={statusLabels[client.status] || client.status || 'Unknown'} />
+                      {client.application_status ? <StatusBadge value={client.application_status} /> : null}
                     </div>
+                    {client.unread_messages > 0 ? (
+                      <p className="mt-2 text-xs font-semibold text-blue-700">
+                        {client.unread_messages} unread message{client.unread_messages === 1 ? '' : 's'}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>

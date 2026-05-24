@@ -8,8 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_client_user, get_current_user, get_user_role_value
-from app.models import ClientProfile, Document, DocumentType, User
-from app.schemas import DocumentUploadResponse
+from app.models import (
+    ClientProfile,
+    Document,
+    DocumentAccessLevel,
+    DocumentReviewStatus,
+    DocumentType,
+    DocumentVisibility,
+    User,
+)
+from app.schemas import DocumentPreviewResponse, DocumentUploadResponse
 from app.storage import build_public_url, read_bytes, save_bytes
 
 
@@ -25,10 +33,17 @@ def _serialize_document(document: Document) -> dict:
         "file_size": document.file_size,
         "mime_type": document.mime_type,
         "is_verified": document.is_verified,
+        "uploaded_by": document.uploaded_by,
+        "uploaded_by_role": document.uploaded_by_role,
+        "visibility": document.visibility,
+        "access_level": document.access_level,
+        "status": document.status,
         "verified_by": document.verified_by,
         "verified_at": document.verified_at,
         "expiry_date": document.expiry_date,
         "uploaded_at": document.uploaded_at,
+        "created_at": document.created_at,
+        "updated_at": document.updated_at,
         "file_url": build_public_url(document.file_url),
     }
 
@@ -41,6 +56,8 @@ def _get_document_for_user(document_id: str, current_user: User, db: Session) ->
     if get_user_role_value(current_user) == "client":
         profile = db.query(ClientProfile).filter(ClientProfile.user_id == current_user.id).first()
         if not profile or profile.id != document.client_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        if document.visibility == DocumentVisibility.admin_only.value:
             raise HTTPException(status_code=403, detail="Access denied")
 
     return document
@@ -89,7 +106,12 @@ async def upload_document(
         file_size=len(contents),
         mime_type=file.content_type,
         is_verified=False,
-        file_data=None
+        file_data=None,
+        uploaded_by=current_user.id,
+        uploaded_by_role=get_user_role_value(current_user),
+        visibility=DocumentVisibility.client_visible.value,
+        access_level=DocumentAccessLevel.download_allowed.value,
+        status=DocumentReviewStatus.pending.value,
     )
 
     db.add(document)
@@ -123,6 +145,11 @@ async def download_document(
     db: Session = Depends(get_db)
 ):
     document = _get_document_for_user(document_id, current_user, db)
+    if (
+        get_user_role_value(current_user) == "client" and
+        document.access_level == DocumentAccessLevel.view_only.value
+    ):
+        raise HTTPException(status_code=403, detail="This document is view-only")
 
     if document.file_data:
         file_bytes = document.file_data
@@ -135,7 +162,7 @@ async def download_document(
     return StreamingResponse(BytesIO(file_bytes), media_type=mime_type, headers=headers)
 
 
-@router.get("/{document_id}/file")
+@router.get("/{document_id}/preview", response_model=DocumentPreviewResponse)
 def get_document_file(
     document_id: str,
     current_user: User = Depends(get_current_user),
@@ -150,8 +177,24 @@ def get_document_file(
         file_bytes, detected_mime_type = read_bytes(document.file_url)
         mime_type = document.mime_type or detected_mime_type
 
+    allow_download = not (
+        get_user_role_value(current_user) == "client" and
+        document.access_level == DocumentAccessLevel.view_only.value
+    )
+
     return {
         "file_base64": base64.b64encode(file_bytes).decode("utf-8"),
         "mime_type": mime_type,
-        "file_name": document.file_name
+        "file_name": document.file_name,
+        "access_level": document.access_level,
+        "allow_download": allow_download,
     }
+
+
+@router.get("/{document_id}/file")
+def get_document_file_legacy(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return get_document_file(document_id=document_id, current_user=current_user, db=db)

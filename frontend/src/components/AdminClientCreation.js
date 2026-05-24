@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { 
-  User, Mail, Lock, Eye, EyeOff, Plus, X, 
+  Mail, Lock, Eye, EyeOff, Plus, X, 
   AlertCircle, Check, UserPlus
 } from 'lucide-react';
 import APIService from '../services/APIService';
 import LoadingSpinner from './LoadingSpinner';
-import Toast from './Toast';
 
 const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    phone_number: '',
     email: '',
+    interested_job_category: '',
     password: '',
     confirmPassword: ''
   });
@@ -21,10 +24,22 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
 
   const validateForm = () => {
     const errors = [];
+
+    if (!formData.first_name.trim()) {
+      errors.push('First name is required');
+    }
+
+    if (!formData.last_name.trim()) {
+      errors.push('Last name is required');
+    }
+
+    if (!formData.phone_number.trim()) {
+      errors.push('Phone number is required');
+    } else if (formData.phone_number.trim().length < 10) {
+      errors.push('Phone number must be at least 10 digits');
+    }
     
-    if (!formData.email.trim()) {
-      errors.push('Email is required');
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
       errors.push('Please enter a valid email');
     }
     
@@ -57,7 +72,11 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
       const response = await APIService.request('/admin/clients/create', {
         method: 'POST', 
         body: JSON.stringify({
-          email: formData.email,
+          first_name: formData.first_name.trim(),
+          last_name: formData.last_name.trim(),
+          phone_number: formData.phone_number.trim(),
+          email: formData.email || null,
+          interested_job_category: formData.interested_job_category || null,
           password: formData.password
         })
       });
@@ -66,7 +85,11 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
       
       // Reset form
       setFormData({
+        first_name: '',
+        last_name: '',
+        phone_number: '',
         email: '',
+        interested_job_category: '',
         password: '',
         confirmPassword: ''
       });
@@ -156,7 +179,48 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                First Name
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.first_name}
+                onChange={(e) => handleInputChange('first_name', e.target.value)}
+                className="block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="First name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Last Name
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.last_name}
+                onChange={(e) => handleInputChange('last_name', e.target.value)}
+                className="block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Last name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                required
+                value={formData.phone_number}
+                onChange={(e) => handleInputChange('phone_number', e.target.value)}
+                className="block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="2567XXXXXXXX"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Client Email Address
@@ -171,10 +235,26 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="client@example.com"
-                />
-              </div>
+                placeholder="client@example.com"
+              />
             </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Optional. Leave blank if the client will use phone-based onboarding only.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Interested Job Category
+            </label>
+            <input
+              type="text"
+              value={formData.interested_job_category}
+              onChange={(e) => handleInputChange('interested_job_category', e.target.value)}
+              className="block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="House maid, nurse, driver, barista..."
+            />
+          </div>
 
             {/* Password Field */}
             <div>
@@ -248,10 +328,10 @@ const AdminClientCreation = ({ isOpen, onClose, onSuccess }) => {
                 <div className="text-sm text-blue-800">
                   <p className="font-medium mb-1">What happens next:</p>
                   <ul className="space-y-1 text-xs">
-                    <li>• Client account will be created with "New" status</li>
-                    <li>• Email verification will be skipped (admin-created)</li>
-                    <li>• Client will need to complete onboarding process</li>
-                    <li>• You can complete onboarding on their behalf if needed</li>
+                    <li>• Client account will be created as an admin-created onboarding record</li>
+                    <li>• The temporary password must be changed on first login</li>
+                    <li>• The application starts in pending profile completion</li>
+                    <li>• You can continue onboarding and upload documents on the client’s behalf</li>
                   </ul>
                 </div>
               </div>

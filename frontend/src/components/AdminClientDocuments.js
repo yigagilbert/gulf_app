@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   X, 
   FileText, 
@@ -8,10 +8,12 @@ import {
   XCircle,
   Eye,
   Calendar,
-  User,
   File
 } from 'lucide-react';
 import APIService from '../services/APIService';
+import EmptyState from './EmptyState';
+import PDFViewer from './PDFViewer';
+import StatusBadge from './StatusBadge';
 
 const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
   const [documents, setDocuments] = useState([]);
@@ -20,13 +22,7 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [showPDFViewer, setShowPDFViewer] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && clientId) {
-      loadDocuments();
-    }
-  }, [isOpen, clientId]);
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     setError('');
     
@@ -39,7 +35,13 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
+
+  useEffect(() => {
+    if (isOpen && clientId) {
+      loadDocuments();
+    }
+  }, [isOpen, clientId, loadDocuments]);
 
   const handleVerifyDocument = async (documentId, isVerified) => {
     try {
@@ -72,25 +74,14 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
       // response: { file_base64, mime_type, file_name }
       setSelectedDocument({
         ...document,
-        file_base64: response.file_base64,
+        fileUrl: `data:${response.mime_type};base64,${response.file_base64}`,
         mime_type: response.mime_type,
         file_name: response.file_name,
+        allowDownload: response.allow_download !== false,
       });
       setShowPDFViewer(true);
     } catch (err) {
       console.error('Document preview/download error:', err);
-      alert('Failed to preview document');
-    }
-  };
-
-  const previewDocument = async (documentId) => {
-    try {
-      const response = await APIService.getClientDocumentFile(documentId);
-      // response: { file_base64, mime_type, file_name }
-      const fileUrl = `data:${response.mime_type};base64,${response.file_base64}`;
-      // For images/PDFs, you can open in a new tab or show in a modal
-      window.open(fileUrl, '_blank');
-    } catch (err) {
       alert('Failed to preview document');
     }
   };
@@ -184,13 +175,12 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
               <span className="ml-2 text-gray-600">Loading documents...</span>
             </div>
           ) : documents.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No documents uploaded yet</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Use the upload button in the client list to add documents
-              </p>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="No documents uploaded yet"
+              description="When this client uploads documents, or when your team uploads them on the client's behalf, they will appear here."
+              tone="soft"
+            />
           ) : (
             <div className="space-y-4">
               {documents.map((document) => (
@@ -221,17 +211,11 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
                         
                         {/* Verification Status */}
                         <div className="mt-2">
-                          {document.is_verified ? (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Verified
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Pending Verification
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <StatusBadge value={document.status || (document.is_verified ? 'verified' : 'pending')} />
+                            {document.visibility ? <StatusBadge value={document.visibility} /> : null}
+                            {document.access_level ? <StatusBadge value={document.access_level} /> : null}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -304,28 +288,15 @@ const AdminClientDocuments = ({ clientId, clientName, isOpen, onClose }) => {
       </div>
 
       {/* PDF Viewer Modal */}
-      {showPDFViewer && selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[95vh] overflow-hidden">
-            <div className="bg-gray-800 px-4 py-3 text-white flex items-center justify-between">
-              <h3 className="font-medium">{selectedDocument.file_name}</h3>
-              <button
-                onClick={() => setShowPDFViewer(false)}
-                className="text-white hover:text-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="h-[calc(95vh-60px)]">
-              <iframe
-                src={`data:${selectedDocument.mime_type};base64,${selectedDocument.file_base64}`}
-                className="w-full h-full"
-                title={selectedDocument.file_name}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {showPDFViewer && selectedDocument ? (
+        <PDFViewer
+          isOpen={showPDFViewer}
+          onClose={() => setShowPDFViewer(false)}
+          fileUrl={selectedDocument.fileUrl}
+          fileName={selectedDocument.file_name}
+          allowDownload={selectedDocument.allowDownload}
+        />
+      ) : null}
     </div>
   );
 };

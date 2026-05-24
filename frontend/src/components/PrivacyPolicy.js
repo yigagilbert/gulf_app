@@ -36,7 +36,7 @@ const PrivacyPolicy = () => (
     </p>
     <h2 className="text-xl font-semibold mt-6 mb-2">Contact Us</h2>
     <p>
-      If you have any questions about this Privacy Policy, please contact us at <a href="mailto:+256756527240" className="text-blue-600 underline">+256756527240</a>.
+      If you have any questions about this Privacy Policy, please contact us on <a href="tel:+256756527240" className="text-blue-600 underline">+256756527240</a>.
     </p>
   </div>
 );

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { 
   X, Download, ZoomIn, ZoomOut, RotateCw, 
-  ChevronLeft, ChevronRight, FileText, AlertCircle,
+  FileText, AlertCircle,
   Maximize2, Minimize2
 } from 'lucide-react';
 
-const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
+const PDFViewer = ({ isOpen, onClose, fileUrl, fileName, allowDownload = true }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -25,6 +25,9 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
   };
 
   const handleDownload = () => {
+    if (!allowDownload) {
+      return;
+    }
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = fileName || 'document';
@@ -116,13 +119,15 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
             </button>
 
             {/* Download */}
-            <button
-              onClick={handleDownload}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              title="Download"
-            >
-              <Download className="h-5 w-5" />
-            </button>
+            {allowDownload ? (
+              <button
+                onClick={handleDownload}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                title="Download"
+              >
+                <Download className="h-5 w-5" />
+              </button>
+            ) : null}
 
             {/* Close */}
             <button
@@ -149,15 +154,19 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
               <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to load document</h3>
               <p className="text-gray-600 mb-4">
-                The document could not be displayed. You can try downloading it instead.
+                {allowDownload
+                  ? 'The document could not be displayed. You can try downloading it instead.'
+                  : 'The document could not be displayed in the app. Please contact the office if you need help viewing it.'}
               </p>
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Download className="h-4 w-4 mr-2 inline" />
-                Download Document
-              </button>
+              {allowDownload ? (
+                <button
+                  onClick={handleDownload}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Download className="h-4 w-4 mr-2 inline" />
+                  Download Document
+                </button>
+              ) : null}
             </div>
           )}
 
@@ -191,15 +200,19 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
                   <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Document Preview</h3>
                   <p className="text-gray-600 mb-4">
-                    Preview is not available for this file type. You can download it to view the content.
+                    {allowDownload
+                      ? 'Preview is not available for this file type. You can download it to view the content.'
+                      : 'Preview is not available for this file type. This document is view-only, so please contact the office if you need help.'}
                   </p>
-                  <button
-                    onClick={handleDownload}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="h-4 w-4 mr-2 inline" />
-                    Download Document
-                  </button>
+                  {allowDownload ? (
+                    <button
+                      onClick={handleDownload}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Download className="h-4 w-4 mr-2 inline" />
+                      Download Document
+                    </button>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -209,7 +222,9 @@ const PDFViewer = ({ isOpen, onClose, fileUrl, fileName }) => {
         {/* Footer */}
         <div className="p-4 bg-gray-900 text-white text-center">
           <p className="text-sm text-gray-300">
-            Use the controls above to zoom, rotate, or download the document
+            {allowDownload
+              ? 'Use the controls above to zoom, rotate, or download the document'
+              : 'Use the controls above to zoom and review the document inside the app'}
           </p>
         </div>
       </div>

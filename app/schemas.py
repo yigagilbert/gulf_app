@@ -34,6 +34,50 @@ class JobTypeEnum(str, Enum):
     contract = "contract"
     temporary = "temporary"
 
+
+class ApplicationWorkflowStatusEnum(str, Enum):
+    draft = "draft"
+    pending_profile_completion = "pending_profile_completion"
+    pending_documents = "pending_documents"
+    submitted = "submitted"
+    under_review = "under_review"
+    needs_update = "needs_update"
+    approved = "approved"
+    rejected = "rejected"
+    processing = "processing"
+    completed = "completed"
+
+
+class ClientLifecycleStatusEnum(str, Enum):
+    new_lead = "new_lead"
+    applicant = "applicant"
+    under_processing = "under_processing"
+    selected = "selected"
+    visa_processing = "visa_processing"
+    ready_to_travel = "ready_to_travel"
+    traveled = "traveled"
+    active_abroad = "active_abroad"
+    returned = "returned"
+    cancelled = "cancelled"
+    inactive = "inactive"
+
+
+class DocumentVisibilityEnum(str, Enum):
+    client_visible = "client_visible"
+    admin_only = "admin_only"
+
+
+class DocumentAccessLevelEnum(str, Enum):
+    view_only = "view_only"
+    download_allowed = "download_allowed"
+
+
+class DocumentReviewStatusEnum(str, Enum):
+    pending = "pending"
+    verified = "verified"
+    rejected = "rejected"
+    archived = "archived"
+
 # User schemas
 class UserCreate(BaseModel):
     email: EmailStr
@@ -51,6 +95,7 @@ class ClientCreate(BaseModel):
     phone_number: str
     password: str
     email: Optional[EmailStr] = None  # Optional for clients
+    interested_job_category: Optional[str] = None
     
     @validator('password')
     def validate_password(cls, v):
@@ -72,15 +117,90 @@ class ClientLogin(BaseModel):
     phone_number: str
     password: str
 
+
+class LoginRequest(BaseModel):
+    identifier: str
+    password: str
+
+    @validator('identifier')
+    def validate_identifier(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Identifier is required')
+        return v.strip()
+
 class UserResponse(BaseModel):
     id: str
     email: Optional[str] = None
     phone_number: Optional[str] = None
     role: UserRoleEnum
     is_active: bool
+    must_change_password: bool = False
     
     class Config:
         from_attributes = True
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    role: UserRoleEnum = UserRoleEnum.admin
+
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+    @validator('role')
+    def validate_role(cls, v):
+        if v not in {UserRoleEnum.admin, UserRoleEnum.super_admin}:
+            raise ValueError('Admin users must have admin or super_admin role')
+        return v
+
+
+class AdminUserUpdate(BaseModel):
+    role: Optional[UserRoleEnum] = None
+    is_active: Optional[bool] = None
+
+    @validator('role')
+    def validate_role(cls, v):
+        if v is not None and v not in {UserRoleEnum.admin, UserRoleEnum.super_admin}:
+            raise ValueError('Admin users must have admin or super_admin role')
+        return v
+
+
+class AdminPasswordResetRequest(BaseModel):
+    new_temporary_password: str
+
+    @validator('new_temporary_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+
+class AdminUserListResponse(UserResponse):
+    created_at: datetime
+    updated_at: datetime
+    last_login_at: Optional[datetime] = None
+    password_changed_at: Optional[datetime] = None
 
 # Client Profile schemas
 class ClientProfileCreate(BaseModel):
@@ -294,6 +414,16 @@ class ClientProfileResponse(BaseModel):
     profile_photo_url: Optional[str] = None
     profile_photo_data: Optional[str] = None
     status: ClientStatusEnum
+    application_status: Optional[ApplicationWorkflowStatusEnum] = ApplicationWorkflowStatusEnum.draft
+    application_status_updated_at: Optional[datetime] = None
+    application_status_updated_by: Optional[str] = None
+    application_status_notes: Optional[str] = None
+    client_lifecycle_status: Optional[ClientLifecycleStatusEnum] = ClientLifecycleStatusEnum.new_lead
+    lifecycle_status_updated_at: Optional[datetime] = None
+    lifecycle_status_updated_by: Optional[str] = None
+    lifecycle_status_notes: Optional[str] = None
+    created_by_admin: bool = False
+    onboarding_completed_at: Optional[datetime] = None
     verification_notes: Optional[str] = None
     verified_at: Optional[datetime] = None
     created_at: datetime
@@ -362,9 +492,16 @@ class DocumentResponse(BaseModel):
     file_size: Optional[int]
     mime_type: Optional[str]
     is_verified: bool
+    uploaded_by: Optional[str] = None
+    uploaded_by_role: Optional[str] = None
+    visibility: Optional[DocumentVisibilityEnum] = None
+    access_level: Optional[DocumentAccessLevelEnum] = None
+    status: Optional[DocumentReviewStatusEnum] = None
     verified_at: Optional[datetime]
     expiry_date: Optional[date]
     uploaded_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -424,12 +561,19 @@ class JobApplicationResponse(BaseModel):
 # Admin specific schemas
 class AdminClientListResponse(BaseModel):
     id: str
-    user_email: str
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+    phone_number: Optional[str] = None
     first_name: Optional[str]
     last_name: Optional[str]
     profile_photo_url: Optional[str] = None
     profile_photo_data: Optional[str] = None
     status: ClientStatusEnum
+    application_status: Optional[ApplicationWorkflowStatusEnum] = ApplicationWorkflowStatusEnum.draft
+    client_lifecycle_status: Optional[ClientLifecycleStatusEnum] = ClientLifecycleStatusEnum.new_lead
+    created_by_admin: bool = False
+    unread_messages: int = 0
+    interested_job_category: Optional[str] = None
     created_at: datetime
     verification_notes: Optional[str]
     
@@ -440,17 +584,91 @@ class AdminVerificationUpdate(BaseModel):
     status: ClientStatusEnum
     verification_notes: Optional[str] = None
 
+
+class AdminClientCreateRequest(BaseModel):
+    first_name: str
+    last_name: str
+    phone_number: str
+    password: str
+    email: Optional[EmailStr] = None
+    interested_job_category: Optional[str] = None
+
+    @validator('password')
+    def validate_client_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+
+class StatusUpdateRequest(BaseModel):
+    status: str
+    notes: Optional[str] = None
+
+
+class StatusHistoryResponse(BaseModel):
+    id: str
+    client_id: str
+    previous_status: Optional[str] = None
+    new_status: str
+    status_type: str
+    changed_by: str
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class ChatMessageCreate(BaseModel):
     receiver_id: str
     content: str
+
+    @validator('content')
+    def validate_content(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Message content is required')
+        return v.strip()
 
 class ChatMessageResponse(BaseModel):
     id: str
     sender_id: str
     receiver_id: str
+    client_id: Optional[str] = None
+    sender_role: Optional[str] = None
     content: str
     sent_at: datetime
     is_read: bool
+    read_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ChatConversationResponse(BaseModel):
+    user_id: str
+    client_id: Optional[str] = None
+    display_name: str
+    latest_message: ChatMessageResponse
+    unread_count: int = 0
+    profile_photo_url: Optional[str] = None
+
+class ChatUnreadCountResponse(BaseModel):
+    unread_count: int
+
+
+class DocumentPreviewResponse(BaseModel):
+    file_base64: str
+    mime_type: Optional[str] = None
+    file_name: str
+    access_level: Optional[DocumentAccessLevelEnum] = None
+    allow_download: bool = True
+
+
+class NotificationItemResponse(BaseModel):
+    id: str
+    title: str
+    message: str
+    category: str
+    created_at: datetime
 
     class Config:
         from_attributes = True

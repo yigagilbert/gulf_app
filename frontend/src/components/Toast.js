@@ -77,31 +77,4 @@ const Toast = ({
   );
 };
 
-// ToastProvider component for managing multiple toasts
-export const ToastProvider = ({ children }) => {
-  const [toasts, setToasts] = useState([]);
-
-  const addToast = (toast) => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { ...toast, id }]);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
-
-  return (
-    <>
-      {children}
-      {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          {...toast}
-          onClose={() => removeToast(toast.id)}
-        />
-      ))}
-    </>
-  );
-};
-
 export default Toast;

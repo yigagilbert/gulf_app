@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, Phone, MapPin, Users, FileText, Heart, Briefcase, GraduationCap,
+  User, Phone, MapPin, Users, FileText, Heart,
   ChevronRight, ChevronLeft, Check, AlertCircle, Save, UserCheck, Building
 } from 'lucide-react';
 import APIService from '../services/APIService';
-import { useAuth } from '../AuthProvider';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
 
 const OnboardingWizard = ({ onComplete }) => {
-  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -224,7 +222,6 @@ const OnboardingWizard = ({ onComplete }) => {
   };
 
   const validateCurrentStep = () => {
-    const currentStepFields = steps[currentStep].fields;
     const requiredFields = {
       personal: ['first_name', 'last_name', 'date_of_birth', 'gender', 'nationality'],
       physical: ['marital_status', 'position_applied_for'],

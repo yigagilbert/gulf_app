@@ -1,13 +1,12 @@
 # main.py
 import os
 import uvicorn
-import uuid
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from dotenv import load_dotenv
 from app.database import Base, engine
+from app.bootstrap import ensure_auth_schema, ensure_default_super_admin, ensure_platform_schema
 # Import routers
 from app.routes.auth import router as auth_router
 from app.routes.profile import router as profile_router
@@ -15,32 +14,49 @@ from app.routes.documents import router as documents_router
 from app.routes.admin import router as admin_router
 from app.routes.jobs import router as jobs_router
 from app.routes.chat import router as chat_router
-# Default admin creation (utility function)
-from app.models import User, UserRole
-from app.utils import get_password_hash
-from app.database import get_db
-from sqlalchemy.exc import IntegrityError
-from app.storage import get_local_upload_dir, is_local_storage
+from app.storage import get_local_upload_dir, is_local_storage, validate_storage_config
+from app.utils import get_environment
 
 load_dotenv()
 
+
+def validate_runtime_config() -> None:
+    environment = get_environment()
+    if environment == "production":
+        if not os.getenv("DATABASE_URL"):
+            raise RuntimeError("DATABASE_URL is required in production.")
+        if not os.getenv("SECRET_KEY"):
+            raise RuntimeError("SECRET_KEY is required in production.")
+    validate_storage_config()
+
 # Create tables
+validate_runtime_config()
+Base.metadata.create_all(bind=engine)
+ensure_auth_schema(engine)
+ensure_platform_schema(engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Job Placement System API", version="1.0.0")
 
-# ENHANCED CORS configuration
+default_origins = [
+    "https://gulf-app.vercel.app",
+    "https://consultportal.preview.emergentagent.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+    "https://gulfconsultantsug.com",
+    "https://www.gulfconsultantsug.com",
+]
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", ",".join(default_origins)).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://gulf-app.vercel.app",
-        "https://consultportal.preview.emergentagent.com",  # Production frontend URL
-        "https://consultportal.preview.emergentagent.com",  # User's current frontend URL
-        "http://localhost:3000",      # React dev server
-        "http://127.0.0.1:3000",     # Alternative localhost
-        "https://localhost:3000",     # HTTPS version
-        "https://127.0.0.1:3000",    # HTTPS alternative
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
@@ -76,36 +92,7 @@ if is_local_storage():
     (uploads_dir / "client_documents").mkdir(exist_ok=True)
     app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
-DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL")
-DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
-
-def create_default_admin():
-    if not DEFAULT_ADMIN_EMAIL or not DEFAULT_ADMIN_PASSWORD:
-        print("Default admin credentials not configured; skipping default admin creation")
-        return
-
-    db = next(get_db())
-    admin = db.query(User).filter(User.email == DEFAULT_ADMIN_EMAIL).first()
-    if not admin:
-        hashed_password = get_password_hash(DEFAULT_ADMIN_PASSWORD)
-        admin = User(
-            id=str(uuid.uuid4()),
-            email=DEFAULT_ADMIN_EMAIL,
-            password_hash=hashed_password,
-            role=UserRole.super_admin,
-            is_active=True,
-            email_verified=True
-        )
-        db.add(admin)
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-        print(f"Default admin created: {DEFAULT_ADMIN_EMAIL}")
-    else:
-        print(f"Default admin already exists: {DEFAULT_ADMIN_EMAIL}")
-
-create_default_admin()
+ensure_default_super_admin()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import APIService from '../services/APIService';
 import { validateProfileData } from '../utils/validation';
-import { VALIDATION_RULES } from '../constants';
 
 const ProfileTab = ({ profile, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -101,6 +100,11 @@ const ProfileTab = ({ profile, onUpdate }) => {
 
     // Use exported validation
     const validation = validateProfileData(formData);
+    if (!validation.isValid) {
+      setError(validation.errors[0] || 'Please correct the highlighted fields.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const updatedProfile = await APIService.updateProfile(formData);
@@ -356,7 +360,7 @@ const ProfileTab = ({ profile, onUpdate }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-500">Email</label>
-              <p className="text-gray-900">{profile?.user?.email}</p>
+              <p className="text-gray-900">{profile?.user_email || 'No email on file'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-500">Phone</label>

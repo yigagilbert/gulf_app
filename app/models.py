@@ -43,6 +43,50 @@ class ApplicationStatus(enum.Enum):
     rejected = "rejected"
     withdrawn = "withdrawn"
 
+
+class ApplicationWorkflowStatus(enum.Enum):
+    draft = "draft"
+    pending_profile_completion = "pending_profile_completion"
+    pending_documents = "pending_documents"
+    submitted = "submitted"
+    under_review = "under_review"
+    needs_update = "needs_update"
+    approved = "approved"
+    rejected = "rejected"
+    processing = "processing"
+    completed = "completed"
+
+
+class ClientLifecycleStatus(enum.Enum):
+    new_lead = "new_lead"
+    applicant = "applicant"
+    under_processing = "under_processing"
+    selected = "selected"
+    visa_processing = "visa_processing"
+    ready_to_travel = "ready_to_travel"
+    traveled = "traveled"
+    active_abroad = "active_abroad"
+    returned = "returned"
+    cancelled = "cancelled"
+    inactive = "inactive"
+
+
+class DocumentVisibility(enum.Enum):
+    client_visible = "client_visible"
+    admin_only = "admin_only"
+
+
+class DocumentAccessLevel(enum.Enum):
+    view_only = "view_only"
+    download_allowed = "download_allowed"
+
+
+class DocumentReviewStatus(enum.Enum):
+    pending = "pending"
+    verified = "verified"
+    rejected = "rejected"
+    archived = "archived"
+
 class User(Base):
     __tablename__ = "users"
     
@@ -53,6 +97,9 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.client)
     is_active = Column(Boolean, default=True)
     email_verified = Column(Boolean, default=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    password_changed_at = Column(DateTime, nullable=True)
+    last_login_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -142,6 +189,16 @@ class ClientProfile(Base):
     profile_photo_url = Column(String)
     profile_photo_data = Column(LargeBinary)  # <-- Add this line
     status = Column(Enum(ClientStatus), default=ClientStatus.new)
+    application_status = Column(String, default=ApplicationWorkflowStatus.draft.value, nullable=False)
+    application_status_updated_at = Column(DateTime)
+    application_status_updated_by = Column(String, ForeignKey("users.id"))
+    application_status_notes = Column(Text)
+    client_lifecycle_status = Column(String, default=ClientLifecycleStatus.new_lead.value, nullable=False)
+    lifecycle_status_updated_at = Column(DateTime)
+    lifecycle_status_updated_by = Column(String, ForeignKey("users.id"))
+    lifecycle_status_notes = Column(Text)
+    created_by_admin = Column(Boolean, default=False, nullable=False)
+    onboarding_completed_at = Column(DateTime)
     verification_notes = Column(Text)
     verified_by = Column(String, ForeignKey("users.id"))
     verified_at = Column(DateTime)
@@ -173,10 +230,19 @@ class Document(Base):
     file_size = Column(Integer)
     mime_type = Column(String)
     is_verified = Column(Boolean, default=False)
+    application_id = Column(String, ForeignKey("job_applications.id"))
+    uploaded_by = Column(String, ForeignKey("users.id"))
+    uploaded_by_role = Column(String, nullable=False, default=UserRole.client.value)
+    visibility = Column(String, nullable=False, default=DocumentVisibility.client_visible.value)
+    access_level = Column(String, nullable=False, default=DocumentAccessLevel.download_allowed.value)
+    status = Column(String, nullable=False, default=DocumentReviewStatus.pending.value)
     verified_by = Column(String, ForeignKey("users.id"))
     verified_at = Column(DateTime)
     expiry_date = Column(Date)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
+    archived_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     client = relationship("ClientProfile", back_populates="documents")
@@ -253,6 +319,33 @@ class ChatMessage(Base):
     id = Column(String, primary_key=True, index=True)
     sender_id = Column(String, ForeignKey("users.id"), nullable=False)
     receiver_id = Column(String, ForeignKey("users.id"), nullable=False)
+    client_id = Column(String, ForeignKey("client_profiles.id"))
+    sender_role = Column(String, nullable=False, default=UserRole.client.value)
     content = Column(Text, nullable=False)
     sent_at = Column(DateTime, default=datetime.utcnow)
     is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime)
+
+
+class StatusHistory(Base):
+    __tablename__ = "status_history"
+
+    id = Column(String, primary_key=True, index=True)
+    client_id = Column(String, ForeignKey("client_profiles.id"), nullable=False)
+    previous_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=False)
+    status_type = Column(String, nullable=False)
+    changed_by = Column(String, ForeignKey("users.id"), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id = Column(String, primary_key=True, index=True)
+    actor_user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    target_user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

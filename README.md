@@ -135,10 +135,11 @@ Common backend settings:
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | No | Optional database connection string. Falls back to SQLite when omitted. |
+| `ENVIRONMENT` | Recommended | Use `production` in deployed environments to enable stricter startup validation. |
 | `SECRET_KEY` | Yes | JWT signing secret. |
 | `ALGORITHM` | Yes | JWT signing algorithm. |
 | `ACCESS_TOKEN_EXPIRE_HOURS` | Yes | Access token lifetime. |
-| `STORAGE_PROVIDER` | Recommended | Use `local` for development or your cloud-backed provider in deployment. |
+| `STORAGE_PROVIDER` | Recommended | Use `local` for development or `r2` for Cloudflare R2 in deployment. |
 | `UPLOAD_DIR` | Recommended | Local upload directory when using local storage. |
 | `DEFAULT_ADMIN_EMAIL` | Optional | Creates a default admin on startup when paired with a password. |
 | `DEFAULT_ADMIN_PASSWORD` | Optional | Password for the startup-created admin user. |
@@ -154,6 +155,8 @@ Optional Cloudflare R2 settings:
 | `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | Secret key |
 | `CLOUDFLARE_R2_PUBLIC_BASE_URL` | Public asset base URL |
 
+For Docker deployment, keep the R2 variables in the backend env file used by the API container, not in the image-tag env file for compose.
+
 ### Frontend
 
 | Variable | Required | Purpose |
@@ -167,6 +170,38 @@ Optional Cloudflare R2 settings:
 - Do not commit live `.env` files or uploaded documents
 - If you use cloud object storage, configure the R2 variables before deploy
 - Review allowed CORS origins in [main.py](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/main.py) for your production frontend domains
+
+## Docker Deployment
+
+This repo includes production Docker packaging for:
+
+- Backend image: `yigagilbert/gulf-consultant-backend`
+- Frontend image: `yigagilbert/gulf-consultant-frontend`
+
+Key files:
+
+- [Dockerfile.backend](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/Dockerfile.backend)
+- [frontend/Dockerfile](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/frontend/Dockerfile)
+- [docker-compose.vm.yml](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/docker-compose.vm.yml)
+- [.env.backend.example](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/.env.backend.example)
+- [.env.vm.example](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/.env.vm.example)
+- [DEPLOYMENT.md](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/DEPLOYMENT.md)
+
+Build and push both images:
+
+```bash
+./scripts/docker-build-push.sh latest
+```
+
+The frontend production build targets:
+
+```text
+https://api.gulfconsultantsug.com/api
+```
+
+In the recommended VM setup, neither frontend nor backend ports are published on the host. Both containers stay on a shared Docker proxy network and are reached through NGINX Proxy Manager by container name.
+
+For the full VM + NGINX Proxy Manager setup, use [DEPLOYMENT.md](/Users/sunbird/Documents/Workshop/Gulf/gulf_consultant/DEPLOYMENT.md).
 
 ## Notes for Contributors
 

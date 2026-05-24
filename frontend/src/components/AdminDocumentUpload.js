@@ -9,6 +9,9 @@ import LoadingSpinner from './LoadingSpinner';
 const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
   const [documentType, setDocumentType] = useState('');
+  const [visibility, setVisibility] = useState('client_visible');
+  const [accessLevel, setAccessLevel] = useState('view_only');
+  const [reviewStatus, setReviewStatus] = useState('pending');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -93,7 +96,14 @@ const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess 
     setError(null);
 
     try {
-      const response = await APIService.uploadClientDocument(clientId, file, documentType);
+      const response = await APIService.uploadClientDocument(
+        clientId,
+        file,
+        documentType,
+        visibility,
+        accessLevel,
+        reviewStatus
+      );
 
       setSuccess(`Document uploaded successfully for ${clientName}`);
       
@@ -104,6 +114,9 @@ const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess 
       // Reset form
       setFile(null);
       setDocumentType('');
+      setVisibility('client_visible');
+      setAccessLevel('view_only');
+      setReviewStatus('pending');
       
       // Close modal after 2 seconds
       setTimeout(() => {
@@ -121,6 +134,9 @@ const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess 
   const resetForm = () => {
     setFile(null);
     setDocumentType('');
+    setVisibility('client_visible');
+    setAccessLevel('view_only');
+    setReviewStatus('pending');
     setError(null);
     setSuccess(null);
   };
@@ -193,6 +209,43 @@ const AdminDocumentUpload = ({ clientId, clientName, isOpen, onClose, onSuccess 
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Visibility</label>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="client_visible">Visible to client</option>
+                <option value="admin_only">Admin only</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Client Access</label>
+              <select
+                value={accessLevel}
+                onChange={(e) => setAccessLevel(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="view_only">View only</option>
+                <option value="download_allowed">Download allowed</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Review Status</label>
+              <select
+                value={reviewStatus}
+                onChange={(e) => setReviewStatus(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
 
           {/* File Upload Area */}

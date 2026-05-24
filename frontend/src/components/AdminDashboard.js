@@ -1,53 +1,51 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  LogOut, User, Briefcase, Calendar, BarChart3, Search, Filter,
-  Plus, Download, Eye, Edit, CheckCircle, XCircle, Clock,
-  Users, FileText, TrendingUp, AlertTriangle, ChevronDown,
-  MoreHorizontal, RefreshCw, Settings, Bell, Menu, X, MessageCircle
+  LogOut, User, Briefcase, BarChart3, CheckCircle, Clock,
+  Users, FileText, TrendingUp, Bell, Menu, X, MessageCircle, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
+import { usePortal } from '../context/PortalContext';
 import APIService, { APIError } from '../services/APIService';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
-import ConfirmDialog from './ConfirmDialog';
 import AdminClientsTab from './AdminClientsTab';
 import AdminJobsTab from './AdminJobsTab';
 import AdminApplicationsTab from './AdminApplicationsTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
 import AdminChatTab from './AdminChatTab';
+import AdminUsersTab from './AdminUsersTab';
 
 // Admin Stats Dashboard
 const AdminStats = ({ stats }) => {
   const statCards = [
     {
       name: 'Total Clients',
-      value: stats?.totalClients || 0,
-      change: '+12%',
+      value: stats?.total_clients || 0,
+      change: `${stats?.new_clients || 0} new`,
       changeType: 'increase',
       icon: Users,
       color: 'bg-blue-500'
     },
     {
-      name: 'Active Jobs',
-      value: stats?.activeJobs || 0,
-      change: '+5%',
+      name: 'Pending Applications',
+      value: stats?.pending_applications || 0,
+      change: `${stats?.missing_documents || 0} missing docs`,
       changeType: 'increase',
       icon: Briefcase,
       color: 'bg-green-500'
     },
     {
-      name: 'Applications',
-      value: stats?.totalApplications || 0,
-      change: '+18%',
+      name: 'New Messages',
+      value: stats?.new_messages || 0,
+      change: `${stats?.verified_clients || 0} verified clients`,
       changeType: 'increase',
       icon: FileText,
       color: 'bg-purple-500'
     },
     {
-      name: 'Placements',
-      value: stats?.totalPlacements || 0,
-      change: '+3%',
+      name: 'Ready To Travel',
+      value: stats?.ready_to_travel || 0,
+      change: `${stats?.traveled || 0} traveled`,
       changeType: 'increase',
       icon: CheckCircle,
       color: 'bg-orange-500'
@@ -131,28 +129,20 @@ const AdminDashboard = () => {
   const [activities, setActivities] = useState([]);
 
   const { logout, user } = useAuth();
-  const navigate = useNavigate();
+  const { unreadMessages, setUnreadMessages } = usePortal();
+  const isSuperAdmin = user?.role === 'super_admin';
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Load dashboard statistics
-      const [clientsData, jobsData, applicationsData] = await Promise.all([
-        APIService.getClients().catch(() => []),
-        APIService.getJobs().catch(() => []),
-        APIService.getAllApplications().catch(() => [])
+      const [dashboardStats, unreadData] = await Promise.all([
+        APIService.getAdminDashboardStats().catch(() => ({})),
+        APIService.getUnreadMessageCount().catch(() => ({ unread_count: 0 })),
       ]);
-
-      const dashboardStats = {
-        totalClients: clientsData?.length || 0,
-        activeJobs: jobsData?.filter(job => job.is_active)?.length || 0,
-        totalApplications: applicationsData?.length || 0,
-        totalPlacements: applicationsData?.filter(app => app.application_status === 'accepted')?.length || 0
-      };
-
       setStats(dashboardStats);
+      setUnreadMessages(unreadData?.unread_count || 0);
 
       // Mock recent activities - replace with real data
       setActivities([
@@ -169,7 +159,7 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUnreadMessages]);
 
   useEffect(() => {
     loadDashboardData();
@@ -181,7 +171,8 @@ const AdminDashboard = () => {
     { id: 'jobs', label: 'Jobs', icon: Briefcase },
     { id: 'applications', label: 'Applications', icon: FileText },
     { id: 'chat', label: 'Messages', icon: MessageCircle },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp }
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    ...(isSuperAdmin ? [{ id: 'admins', label: 'Admin Users', icon: User }] : [])
   ];
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -196,7 +187,7 @@ const AdminDashboard = () => {
           <div className="flex items-center space-x-3">
             <div className="h-8 w-8 flex items-center justify-center">
               <img
-                src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png"
+                src="/gulf.png"
                 alt="Gulf Consultants"
                 className="h-full w-full object-contain"
               />
@@ -233,7 +224,7 @@ const AdminDashboard = () => {
               <div className="flex items-center space-x-3">
                 <div className="h-10 w-10 flex items-center justify-center">
                   <img
-                    src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png"
+                    src="/gulf.png"
                     alt="Gulf Consultants"
                     className="h-full w-full object-contain"
                   />
@@ -261,9 +252,11 @@ const AdminDashboard = () => {
                     <Icon className="mr-3 h-5 w-5" />
                     {item.label}
                     {item.id === 'chat' && (
-                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                        3
-                      </span>
+                      unreadMessages > 0 ? (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                          {unreadMessages}
+                        </span>
+                      ) : null
                     )}
                   </button>
                 );
@@ -277,7 +270,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">{user?.email}</p>
-                  <p className="text-xs text-gray-500">Administrator</p>
+                  <p className="text-xs text-gray-500">{isSuperAdmin ? 'Super Administrator' : 'Administrator'}</p>
                 </div>
               </div>
               <button
@@ -412,6 +405,7 @@ const AdminDashboard = () => {
             {activeTab === 'applications' && <AdminApplicationsTab />}
             {activeTab === 'chat' && <AdminChatTab />}
             {activeTab === 'analytics' && <AdminAnalyticsTab />}
+            {activeTab === 'admins' && isSuperAdmin && <AdminUsersTab currentUser={user} />}
           </div>
         </main>
       </div>

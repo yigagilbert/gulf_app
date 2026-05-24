@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Eye, EyeOff, Lock, User, CheckCircle, XCircle, AlertCircle, Loader, Phone } from 'lucide-react';
+import { Eye, EyeOff, Lock, CheckCircle, XCircle, AlertCircle, Loader, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthProvider';
-import { validatePassword } from '../utils/validation';
-import { VALIDATION_RULES } from '../constants';
 
 // Enhanced Registration Form for Clients
-const RegisterForm = ({ onToggle, isClient = true }) => {
+const RegisterForm = ({ onToggle }) => {
   const [formData, setFormData] = useState({
     phone_number: '',
     password: '',
@@ -145,20 +144,15 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
     }
 
     try {
-      const registrationData = isClient ? {
-        // Client registration data with auto-generated email
+      const registrationData = {
         phone_number: formData.phone_number,
-        email: generatedEmail, // Auto-generated email
+        email: generatedEmail,
         password: formData.password,
         first_name: formData.first_name,
         last_name: formData.last_name
-      } : {
-        // Admin registration data (if needed)
-        email: generatedEmail,
-        password: formData.password
       };
       
-      await register(registrationData, isClient);
+      await register(registrationData);
       setSuccess(true);
       // Optionally toggle to login or redirect
     } catch (err) {
@@ -173,16 +167,16 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
       <div className="text-center mb-8">
         <div className="mx-auto h-20 w-20 mb-4 flex items-center justify-center">
           <img 
-            src="https://customer-assets.emergentagent.com/job_mobile-recruit/artifacts/58ezwzoy_gulf.png" 
-            alt="Gulf Consultants Logo" 
+            src="/gulf.png" 
+            alt="Gulf Consultant Logo" 
             className="h-full w-full object-contain"
           />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {isClient ? 'Join as Client' : 'Create Admin Account'}
+          Create Your Client Account
         </h2>
         <p className="text-gray-600">
-          {isClient ? 'Register with your phone number to access job opportunities' : 'Create your admin account'}
+          Register with your phone number to begin your digital application.
         </p>
       </div>
 
@@ -201,54 +195,51 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Name fields - Only for Client Registration */}
-        {isClient && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">First Name</label>
-              <input
-                type="text"
-                name="first_name"
-                value={formData.first_name}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="John"
-                required
-                disabled={loading}
-              />
-              {errors.first_name && (
-                <div className="flex items-center text-sm text-red-600 mt-1">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {errors.first_name}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Last Name</label>
-              <input
-                type="text"
-                name="last_name"
-                value={formData.last_name}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Doe"
-                required
-                disabled={loading}
-              />
-              {errors.last_name && (
-                <div className="flex items-center text-sm text-red-600 mt-1">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {errors.last_name}
-                </div>
-              )}
-            </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">First Name</label>
+            <input
+              type="text"
+              name="first_name"
+              value={formData.first_name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              placeholder="John"
+              required
+              disabled={loading}
+            />
+            {errors.first_name && (
+              <div className="flex items-center text-sm text-red-600 mt-1">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.first_name}
+              </div>
+            )}
           </div>
-        )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Last Name</label>
+            <input
+              type="text"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              placeholder="Doe"
+              required
+              disabled={loading}
+            />
+            {errors.last_name && (
+              <div className="flex items-center text-sm text-red-600 mt-1">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.last_name}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Auto-generated Email Preview */}
-        {isClient && generatedEmail && (
+        {generatedEmail && (
           <div className="bg-blue-50 p-3 rounded-lg">
             <label className="block text-sm font-medium text-blue-700 mb-1">
               Generated Email Address
@@ -260,40 +251,37 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           </div>
         )}
 
-        {/* Phone Number - Primary Field for Clients */}
-        {isClient && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Phone Number <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="tel"
-                name="phone_number"
-                value={formData.phone_number}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="1234567890"
-                required
-                disabled={loading}
-              />
-              <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              {validationStates.phone_number && (
-                <div className="absolute right-3 top-2.5">
-                  {validationStates.phone_number === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                </div>
-              )}
-            </div>
-            {errors.phone_number && (
-              <div className="flex items-center text-sm text-red-600 mt-1">
-                <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.phone_number}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Phone Number <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type="tel"
+              name="phone_number"
+              value={formData.phone_number}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              placeholder="1234567890"
+              required
+              disabled={loading}
+            />
+            <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            {validationStates.phone_number && (
+              <div className="absolute right-3 top-2.5">
+                {validationStates.phone_number === 'valid' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
           </div>
-        )}
+          {errors.phone_number && (
+            <div className="flex items-center text-sm text-red-600 mt-1">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {errors.phone_number}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">This will be your username for login</p>
+        </div>
 
         {/* Password */}
         <div>
@@ -379,13 +367,11 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           />
           <label className="ml-3 text-sm text-gray-700">
             I accept the{' '}
-            <a href="#" className="text-green-600 hover:text-green-500 underline">
-              Terms of Service
-            </a>{' '}
+            <span className="text-green-600">Terms of Service</span>{' '}
             and{' '}
-            <a href="#" className="text-green-600 hover:text-green-500 underline">
+            <Link to="/privacy-policy" className="text-green-600 hover:text-green-500 underline">
               Privacy Policy
-            </a>
+            </Link>
           </label>
         </div>
         {errors.acceptTerms && (
@@ -411,10 +397,10 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
           {loading ? (
             <>
               <Loader className="animate-spin -ml-1 mr-3 h-5 w-5" />
-              {isClient ? 'Creating Account...' : 'Creating Admin Account...'}
+              Creating Account...
             </>
           ) : (
-            isClient ? 'Create Client Account' : 'Create Admin Account'
+            'Create Client Account'
           )}
         </button>
       </form>
@@ -428,7 +414,7 @@ const RegisterForm = ({ onToggle, isClient = true }) => {
             className="text-green-600 hover:text-green-500 font-medium focus:outline-none focus:underline"
             disabled={loading}
           >
-            {isClient ? 'Login with phone number' : 'Login with email'}
+            Login with phone number or email
           </button>
         </p>
       </div>

@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import App from './App';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test('renders the privacy policy heading', () => {
+  render(<PrivacyPolicy />);
+  expect(
+    screen.getByRole('heading', { name: /Privacy Policy/i })
+  ).toBeInTheDocument();
 });

@@ -3,38 +3,18 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from typing import Optional
 import jwt
-import os
 import logging
+from typing import Optional
 
 from app.models import User
 from app.database import get_db
+from app.utils import SECRET_KEY, ALGORITHM
 
 logger = logging.getLogger(__name__)
 
 # Security setup
-security = HTTPBearer()
-
-# JWT Configuration - Fixed to handle missing environment variables
-def get_jwt_config():
-    """Get JWT configuration with proper error handling"""
-    secret_key = os.getenv("SECRET_KEY", "qyvUhnfOstdZTFD_5OTFmDxdipvdz_3yfUsy8MogLRI")
-    algorithm = os.getenv("ALGORITHM") or os.getenv("JWT_ALGORITHM", "HS256")
-    
-    if not secret_key:
-        if os.getenv("ENVIRONMENT") == "production":
-            raise ValueError("JWT secret key is required in production")
-        else:
-            # Generate temporary key for development
-            import secrets
-            secret_key = secrets.token_urlsafe(32)
-            logger.warning(f"No JWT secret found. Using temporary key: {secret_key}")
-            logger.info("Add to .env file: SECRET_KEY=" + secret_key)
-    
-    return secret_key, algorithm
-
-SECRET_KEY, ALGORITHM = get_jwt_config()
+security = HTTPBearer(auto_error=False)
 
 def decode_jwt_token(token: str) -> dict:
     """Decode JWT token with comprehensive error handling"""
@@ -178,6 +158,15 @@ def get_client_user(current_user: User = Depends(get_current_user)) -> User:
         )
     return current_user
 
+
+def ensure_password_change_completed(current_user: User) -> User:
+    if getattr(current_user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing this resource"
+        )
+    return current_user
+
 def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Dependency to ensure current user has admin privileges
@@ -214,6 +203,7 @@ def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
                 detail="Admin access required"
             )
         
+        ensure_password_change_completed(current_user)
         logger.debug(f"Admin access granted to user: {current_user.id}")
         return current_user
         
@@ -253,6 +243,7 @@ def get_super_admin_user(current_user: User = Depends(get_current_user)) -> User
                 detail="Super admin access required"
             )
         
+        ensure_password_change_completed(current_user)
         logger.debug(f"Super admin access granted to user: {current_user.id}")
         return current_user
         
@@ -276,15 +267,14 @@ def require_role(*allowed_roles: str):
             pass
     """
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        user_role = str(current_user.role).lower()
-        if hasattr(current_user.role, 'value'):
-            user_role = current_user.role.value
+        user_role = get_user_role_value(current_user)
         
         if user_role not in [role.lower() for role in allowed_roles]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
             )
+        ensure_password_change_completed(current_user)
         return current_user
     
     return role_checker

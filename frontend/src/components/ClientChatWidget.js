@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import APIService from '../services/APIService';
 import { MessageCircle, Send, X, Users, Clock } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
+import { usePortal } from '../context/PortalContext';
+import EmptyState from './EmptyState';
 
 const ClientChatWidget = () => {
   const { user, isAdmin } = useAuth();
+  const { unreadMessages, setUnreadMessages } = usePortal();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -26,19 +29,19 @@ const ClientChatWidget = () => {
     }
   }, [open]);
 
-  // Load chat history when admin is selected
-  useEffect(() => {
-    if (open && selectedAdmin) {
-      loadChatHistory();
-    }
-  }, [open, selectedAdmin]);
-
   // Set default admin for clients
   useEffect(() => {
     if (!isAdmin && open && !selectedAdmin) {
       loadAvailableAdmins();
     }
   }, [isAdmin, open, selectedAdmin]);
+
+  useEffect(() => {
+    if (!user) return;
+    APIService.getUnreadMessageCount()
+      .then((data) => setUnreadMessages(data?.unread_count || 0))
+      .catch(() => setUnreadMessages(0));
+  }, [user, setUnreadMessages]);
 
   const loadAvailableAdmins = async () => {
     try {
@@ -55,19 +58,29 @@ const ClientChatWidget = () => {
     }
   };
 
-  const loadChatHistory = async () => {
+  const loadChatHistory = useCallback(async () => {
     if (!selectedAdmin) return;
     
     setLoading(true);
     try {
       const history = await APIService.getChatHistory(selectedAdmin);
       setMessages(history || []);
+      await APIService.markConversationRead(selectedAdmin);
+      const unreadData = await APIService.getUnreadMessageCount().catch(() => ({ unread_count: 0 }));
+      setUnreadMessages(unreadData?.unread_count || 0);
     } catch (error) {
       console.error('Failed to load chat history:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedAdmin, setUnreadMessages]);
+
+  // Load chat history when admin is selected
+  useEffect(() => {
+    if (open && selectedAdmin) {
+      loadChatHistory();
+    }
+  }, [open, selectedAdmin, loadChatHistory]);
 
   const sendMessage = async () => {
     if (!input.trim() || !selectedAdmin) return;
@@ -79,6 +92,8 @@ const ClientChatWidget = () => {
       await APIService.sendChatMessage(selectedAdmin, messageText);
       // Reload chat history to show the new message
       await loadChatHistory();
+      const unreadData = await APIService.getUnreadMessageCount().catch(() => ({ unread_count: 0 }));
+      setUnreadMessages(unreadData?.unread_count || 0);
     } catch (error) {
       console.error('Failed to send message:', error);
       // Restore the input if sending failed
@@ -145,14 +160,18 @@ const ClientChatWidget = () => {
           <div className="relative">
             <MessageCircle className="h-6 w-6" />
             {/* Message indicator - could be enhanced to show unread count */}
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-3 w-3"></span>
+            {unreadMessages > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold text-white">
+                {unreadMessages}
+              </span>
+            ) : null}
           </div>
         )}
       </button>
 
       {/* Chat Window */}
       {open && (
-        <div className="fixed bottom-20 right-6 w-80 max-w-[calc(100vw-3rem)] bg-white rounded-xl shadow-xl border border-gray-200 z-50 flex flex-col max-h-[70vh]">
+        <div className="fixed bottom-20 left-2 right-2 z-50 flex max-h-[70vh] flex-col rounded-xl border border-gray-200 bg-white shadow-xl sm:left-auto sm:right-6 sm:w-80 sm:max-w-[calc(100vw-3rem)]">
           {/* Chat Header */}
           <div className="p-4 border-b bg-blue-600 text-white rounded-t-xl flex justify-between items-center">
             <div className="flex items-center space-x-2">
@@ -180,11 +199,12 @@ const ClientChatWidget = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p>No messages yet.</p>
-                <p className="text-sm">Start a conversation!</p>
-              </div>
+              <EmptyState
+                icon={MessageCircle}
+                title="No messages yet"
+                description="Ask our team any question about your application and we will reply here."
+                tone="soft"
+              />
             ) : (
               Object.entries(groupedMessages).map(([date, dayMessages]) => (
                 <div key={date}>
@@ -262,17 +282,6 @@ const ClientChatWidget = () => {
           </div>
         </div>
       )}
-
-      {/* Mobile responsive adjustments */}
-      <style jsx>{`
-        @media (max-width: 640px) {
-          .chat-widget {
-            width: calc(100vw - 1rem);
-            right: 0.5rem;
-            left: 0.5rem;
-          }
-        }
-      `}</style>
     </>
   );
 };

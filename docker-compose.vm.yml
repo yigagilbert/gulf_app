@@ -1,0 +1,32 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-yigagilbert/gulf-consultant-backend:latest}
+    container_name: gulf-backend
+    restart: unless-stopped
+    env_file:
+      - .env.backend
+    expose:
+      - "8000"
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - proxy
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-yigagilbert/gulf-consultant-frontend:latest}
+    container_name: gulf-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    networks:
+      - proxy
+
+volumes:
+  backend_uploads:
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
